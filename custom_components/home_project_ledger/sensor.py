@@ -42,20 +42,36 @@ async def async_setup_entry(
 
     currency = entry.data.get("currency", DEFAULT_CURRENCY)
 
+    # Always create total house spend sensor
     sensors = [
         TotalHouseSpendSensor(coordinator, storage, currency),
     ]
 
-    # Create sensors for each area
+    # Create sensors for each area that has receipts or projects
     area_registry = hass.helpers.area_registry.async_get(hass)
-    for area in area_registry.areas.values():
-        sensors.append(AreaSpendSensor(coordinator, storage, area.id, area.name, currency))
+    area_ids = set()
+    
+    # Collect area IDs from projects
+    for project in storage.get_all_projects():
+        if project.area_id:
+            area_ids.add(project.area_id)
+    
+    # Collect area IDs from receipts
+    for receipt in storage.get_all_receipts():
+        if receipt.area_id:
+            area_ids.add(receipt.area_id)
+    
+    # Create area sensors
+    for area_id in area_ids:
+        area = area_registry.async_get_area(area_id)
+        if area:
+            sensors.append(AreaSpendSensor(coordinator, storage, area.id, area.name, currency))
 
     # Create sensors for each project
     for project in storage.get_all_projects():
         sensors.append(ProjectSpendSensor(coordinator, storage, project.project_id, project.name, currency))
 
-    async_add_entities(sensors)
+    async_add_entities(sensors, True)
 
 
 class ProjectLedgerSensorBase(CoordinatorEntity, SensorEntity):
