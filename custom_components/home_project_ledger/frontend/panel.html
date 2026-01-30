@@ -265,12 +265,33 @@
             areas: {},
             currentView: 'projects',
             currentProject: null,
-            currency: 'SEK'
+            currency: 'SEK',
+            hass: null
         };
+
+        // Get Home Assistant connection from parent window
+        function getHassConnection() {
+            if (window.parent && window.parent.hassConnection) {
+                return window.parent.hassConnection;
+            }
+            // Try alternative methods
+            if (window.parent && window.parent.__hass) {
+                return window.parent.__hass.connection;
+            }
+            return null;
+        }
 
         // Initialize app
         async function init() {
             try {
+                // Get HASS connection
+                const hassConn = getHassConnection();
+                if (!hassConn) {
+                    showError('Could not connect to Home Assistant. Please ensure you are accessing this panel from within Home Assistant.');
+                    return;
+                }
+                state.hass = hassConn;
+
                 await loadData();
                 renderApp();
             } catch (error) {
@@ -282,21 +303,66 @@
         // Load data from Home Assistant
         async function loadData() {
             try {
-                // Get all entities
-                const states = await window.hassConnection.sendMessagePromise({
+                if (!state.hass) {
+                    console.warn('No HASS connection available');
+                    return;
+                }
+
+                // Get all states to find our sensors
+                const states = await state.hass.sendMessagePromise({
                     type: 'get_states'
                 });
 
-                // Extract project and receipt data from sensor attributes
-                const sensors = states.filter(s => s.entity_id.startsWith('sensor.home_project_ledger'));
+                // Load areas
+                const areaRegistry = await state.hass.sendMessagePromise({
+                    type: 'config/area_registry/list'
+                });
+                state.areas = {};
+                areaRegistry.forEach(area => {
+                    state.areas[area.area_id] = area.name;
+                });
+
+                // For MVP, we'll reconstruct data from storage
+                // In production, you might want to expose an API endpoint
+                // For now, we'll use a simpler approach: read from sensors attributes
                 
-                // For now, we'll call a service to get data
-                // In a real implementation, this would be more sophisticated
-                state.projects = [];
-                state.receipts = [];
+                // Get project sensors to find projects
+                const projectSensors = states.filter(s => 
+                    s.entity_id.startsWith('sensor.home_project_ledger_') && 
+                    s.entity_id.includes('_spend') && 
+                    !s.entity_id.includes('total_house')
+                );
+
+                // Extract unique projects from sensor attributes
+                const projectMap = new Map();
+                const receiptMap = new Map();
+
+                projectSensors.forEach(sensor => {
+                    const attrs = sensor.attributes || {};
+                    if (attrs.project_id && attrs.project_name) {
+                        projectMap.set(attrs.project_id, {
+                            project_id: attrs.project_id,
+                            name: attrs.project_name,
+                            area_id: attrs.area_id || null,
+                            status: attrs.status || 'open',
+                            created_at: new Date().toISOString(),
+                            closed_at: null
+                        });
+                    }
+                });
+
+                state.projects = Array.from(projectMap.values());
+                state.receipts = Array.from(receiptMap.values());
+
+                console.log('Loaded data:', { 
+                    projects: state.projects.length, 
+                    receipts: state.receipts.length,
+                    areas: Object.keys(state.areas).length
+                });
                 
             } catch (error) {
                 console.error('Error loading data:', error);
+                // Don't throw - allow app to work with empty data
             }
         }
 
@@ -660,7 +726,10 @@
 
         // Call Home Assistant service
         async function callService(service, data) {
-            return await window.hassConnection.sendMessagePromise({
+            if (!state.hass) {
+                throw new Error('No Home Assistant connection');
+            }
+            return await state.hass.sendMessagePromise({
                 type: 'call_service',
                 domain: 'home_project_ledger',
                 service: service,

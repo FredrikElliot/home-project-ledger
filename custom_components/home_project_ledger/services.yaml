@@ -1,0 +1,163 @@
+create_project:
+  name: Create project
+  description: Create a new home project
+  fields:
+    name:
+      name: Project name
+      description: Name of the project
+      required: true
+      example: "Kitchen Renovation"
+      selector:
+        text:
+    area_id:
+      name: Area ID
+      description: Home Assistant area ID (optional)
+      required: false
+      example: "kitchen"
+      selector:
+        area:
+
+close_project:
+  name: Close project
+  description: Close an existing project
+  fields:
+    project_id:
+      name: Project ID
+      description: ID of the project to close
+      required: true
+      example: "abc123-def456-ghi789"
+      selector:
+        text:
+
+add_receipt:
+  name: Add receipt
+  description: Add a receipt to a project
+  fields:
+    project_id:
+      name: Project ID
+      description: ID of the project
+      required: true
+      example: "abc123-def456-ghi789"
+      selector:
+        text:
+    area_id:
+      name: Area ID
+      description: Home Assistant area ID (optional)
+      required: false
+      example: "kitchen"
+      selector:
+        area:
+    merchant:
+      name: Merchant
+      description: Name of the merchant
+      required: true
+      example: "IKEA"
+      selector:
+        text:
+    date:
+      name: Date
+      description: Date of purchase (ISO format YYYY-MM-DD)
+      required: true
+      example: "2024-01-30"
+      selector:
+        date:
+    total:
+      name: Total
+      description: Total amount
+      required: true
+      example: 1299.50
+      selector:
+        number:
+          min: 0
+          step: 0.01
+          mode: box
+    currency:
+      name: Currency
+      description: Currency code (e.g., SEK, USD, EUR)
+      required: false
+      default: "SEK"
+      example: "SEK"
+      selector:
+        text:
+    category_summary:
+      name: Category summary
+      description: Summary of categories (optional)
+      required: false
+      example: "Furniture, Hardware"
+      selector:
+        text:
+    image_data:
+      name: Image data
+      description: Base64 encoded image (optional)
+      required: false
+      selector:
+        text:
+    image_filename:
+      name: Image filename
+      description: Filename for the image (optional)
+      required: false
+      example: "receipt.jpg"
+      selector:
+        text:
+
+update_receipt:
+  name: Update receipt
+  description: Update an existing receipt
+  fields:
+    receipt_id:
+      name: Receipt ID
+      description: ID of the receipt to update
+      required: true
+      example: "xyz789-abc123-def456"
+      selector:
+        text:
+    merchant:
+      name: Merchant
+      description: Name of the merchant (optional)
+      required: false
+      example: "IKEA"
+      selector:
+        text:
+    date:
+      name: Date
+      description: Date of purchase (optional)
+      required: false
+      example: "2024-01-30"
+      selector:
+        date:
+    total:
+      name: Total
+      description: Total amount (optional)
+      required: false
+      example: 1299.50
+      selector:
+        number:
+          min: 0
+          step: 0.01
+          mode: box
+    currency:
+      name: Currency
+      description: Currency code (optional)
+      required: false
+      example: "SEK"
+      selector:
+        text:
+    category_summary:
+      name: Category summary
+      description: Summary of categories (optional)
+      required: false
+      example: "Furniture, Hardware"
+      selector:
+        text:
+
+delete_receipt:
+  name: Delete receipt
+  description: Delete a receipt
+  fields:
+    receipt_id:
+      name: Receipt ID
+      description: ID of the receipt to delete
+      required: true
+      example: "xyz789-abc123-def456"
+      selector:
+        text:

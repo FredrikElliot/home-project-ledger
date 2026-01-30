@@ -27,6 +27,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     os.makedirs(receipt_dir, exist_ok=True)
     _LOGGER.debug("Receipt image directory: %s", receipt_dir)
 
+    # Copy frontend panel to www directory
+    frontend_dir = hass.config.path(f"www/{DOMAIN}")
+    os.makedirs(frontend_dir, exist_ok=True)
+    
+    # Copy panel.html from the integration directory
+    import shutil
+    panel_source = os.path.join(os.path.dirname(__file__), "frontend", "panel.html")
+    panel_dest = os.path.join(frontend_dir, "panel.html")
+    if os.path.exists(panel_source):
+        shutil.copy(panel_source, panel_dest)
+        _LOGGER.debug("Copied panel to: %s", panel_dest)
+
     # Initialize storage
     storage = ProjectLedgerStorage(hass)
     await storage.async_load()
@@ -70,19 +82,15 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def _async_register_panel(hass: HomeAssistant) -> None:
     """Register the custom panel."""
     from .const import PANEL_ICON, PANEL_TITLE, PANEL_URL
-
-    # Register the panel
-    hass.components.frontend.async_register_built_in_panel(
-        component_name="custom",
+    
+    # Register the panel using iframe
+    await hass.components.frontend.async_register_built_in_panel(
+        component_name="iframe",
         sidebar_title=PANEL_TITLE,
         sidebar_icon=PANEL_ICON,
         frontend_url_path=PANEL_URL,
         config={
-            "_panel_custom": {
-                "name": "home-project-ledger-panel",
-                "embed_iframe": True,
-                "trust_external": False,
-            }
+            "url": f"/local/{DOMAIN}/panel.html"
         },
         require_admin=False,
     )
