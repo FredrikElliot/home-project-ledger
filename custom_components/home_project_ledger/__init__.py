@@ -22,22 +22,26 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Home Project Ledger from a config entry."""
     _LOGGER.debug("Setting up Home Project Ledger integration")
 
-    # Ensure receipt image directory exists
-    receipt_dir = hass.config.path(RECEIPT_IMAGE_DIR)
-    os.makedirs(receipt_dir, exist_ok=True)
-    _LOGGER.debug("Receipt image directory: %s", receipt_dir)
-
-    # Copy frontend panel to www directory
-    frontend_dir = hass.config.path(f"www/{DOMAIN}")
-    os.makedirs(frontend_dir, exist_ok=True)
+    # Ensure directories exist using executor to avoid blocking
+    def setup_directories():
+        receipt_dir = hass.config.path(RECEIPT_IMAGE_DIR)
+        os.makedirs(receipt_dir, exist_ok=True)
+        
+        frontend_dir = hass.config.path(f"www/{DOMAIN}")
+        os.makedirs(frontend_dir, exist_ok=True)
+        
+        # Copy panel.html from the integration directory
+        import shutil
+        panel_source = os.path.join(os.path.dirname(__file__), "frontend", "panel.html")
+        panel_dest = os.path.join(frontend_dir, "panel.html")
+        if os.path.exists(panel_source):
+            shutil.copy(panel_source, panel_dest)
+            return panel_dest
+        return None
     
-    # Copy panel.html from the integration directory
-    import shutil
-    panel_source = os.path.join(os.path.dirname(__file__), "frontend", "panel.html")
-    panel_dest = os.path.join(frontend_dir, "panel.html")
-    if os.path.exists(panel_source):
-        shutil.copy(panel_source, panel_dest)
-        _LOGGER.debug("Copied panel to: %s", panel_dest)
+    panel_path = await hass.async_add_executor_job(setup_directories)
+    if panel_path:
+        _LOGGER.debug("Copied panel to: %s", panel_path)
 
     # Initialize storage
     storage = ProjectLedgerStorage(hass)

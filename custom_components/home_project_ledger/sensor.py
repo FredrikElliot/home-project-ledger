@@ -9,7 +9,6 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CURRENCY_DOLLAR, CURRENCY_EURO
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -18,16 +17,6 @@ from .const import DEFAULT_CURRENCY, DOMAIN
 from .coordinator import ProjectLedgerCoordinator
 
 _LOGGER = logging.getLogger(__name__)
-
-# Currency symbols mapping
-CURRENCY_SYMBOLS = {
-    "USD": CURRENCY_DOLLAR,
-    "EUR": CURRENCY_EURO,
-    "SEK": "kr",
-    "NOK": "kr",
-    "DKK": "kr",
-    "GBP": "£",
-}
 
 
 async def async_setup_entry(

@@ -1,6 +1,6 @@
 """Data models for Home Project Ledger."""
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 import uuid
 
@@ -29,7 +29,7 @@ class Project:
             name=name,
             area_id=area_id,
             status=status,
-            created_at=datetime.utcnow().isoformat(),
+            created_at=datetime.now(timezone.utc).isoformat(),
             closed_at=None,
         )
 
@@ -86,7 +86,7 @@ class Receipt:
         category_summary: Optional[str] = None,
     ) -> "Receipt":
         """Create a new receipt."""
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         return cls(
             receipt_id=str(uuid.uuid4()),
             project_id=project_id,

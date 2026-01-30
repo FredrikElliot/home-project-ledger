@@ -4,12 +4,14 @@ from __future__ import annotations
 import base64
 import logging
 import os
-from datetime import datetime
+import re
+from datetime import datetime, timezone
 from typing import Any
 
 import voluptuous as vol
 
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.exceptions import ServiceValidationError
 import homeassistant.helpers.config_validation as cv
 
 from .const import (
@@ -28,6 +30,9 @@ from .models import Project, Receipt
 from .storage import ProjectLedgerStorage
 
 _LOGGER = logging.getLogger(__name__)
+
+# Maximum image size: 10MB
+MAX_IMAGE_SIZE = 10 * 1024 * 1024
 
 # Service schemas
 SERVICE_CREATE_PROJECT_SCHEMA = vol.Schema(
@@ -103,11 +108,10 @@ async def async_setup_services(
 
         project = storage.get_project(project_id)
         if not project:
-            _LOGGER.error("Project not found: %s", project_id)
-            return
+            raise ServiceValidationError(f"Project not found: {project_id}")
 
         project.status = STATUS_CLOSED
-        project.closed_at = datetime.utcnow().isoformat()
+        project.closed_at = datetime.now(timezone.utc).isoformat()
         await storage.async_update_project(project)
         await coordinator.async_refresh_data()
 
@@ -127,6 +131,15 @@ async def async_setup_services(
 
         _LOGGER.debug("Adding receipt for project: %s", project_id)
 
+        # Validate image size if provided
+        if image_data:
+            # Calculate approximate decoded size
+            decoded_size = len(image_data) * 3 / 4
+            if decoded_size > MAX_IMAGE_SIZE:
+                raise ServiceValidationError(
+                    f"Image size ({decoded_size / (1024 * 1024):.1f}MB) exceeds maximum allowed size (10MB)"
+                )
+
         # Handle image upload
         image_path = None
         if image_data and image_filename:
@@ -134,22 +147,29 @@ async def async_setup_services(
                 # Decode base64 image
                 image_bytes = base64.b64decode(image_data)
 
+                # Sanitize filename - keep only alphanumeric, dots, and hyphens
+                safe_filename = re.sub(r'[^a-zA-Z0-9._-]', '_', os.path.basename(image_filename))
+                
                 # Create unique filename
                 receipt_dir = hass.config.path(RECEIPT_IMAGE_DIR)
-                timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-                safe_filename = f"{timestamp}_{image_filename}"
-                full_path = os.path.join(receipt_dir, safe_filename)
+                timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+                unique_filename = f"{timestamp}_{safe_filename}"
+                full_path = os.path.join(receipt_dir, unique_filename)
 
-                # Save image
-                with open(full_path, "wb") as f:
-                    f.write(image_bytes)
+                # Save image using executor to avoid blocking
+                def write_image():
+                    with open(full_path, "wb") as f:
+                        f.write(image_bytes)
+
+                await hass.async_add_executor_job(write_image)
 
                 # Store relative path for web access
-                image_path = f"/local/{DOMAIN}/receipts/{safe_filename}"
+                image_path = f"/local/{DOMAIN}/receipts/{unique_filename}"
                 _LOGGER.debug("Saved receipt image: %s", image_path)
 
-            except Exception as err:
+            except (base64.Error, OSError) as err:
                 _LOGGER.error("Failed to save receipt image: %s", err)
+                raise ServiceValidationError(f"Failed to save receipt image: {err}")
 
         receipt = Receipt.create(
             project_id=project_id,
@@ -175,8 +195,7 @@ async def async_setup_services(
 
         receipt = storage.get_receipt(receipt_id)
         if not receipt:
-            _LOGGER.error("Receipt not found: %s", receipt_id)
-            return
+            raise ServiceValidationError(f"Receipt not found: {receipt_id}")
 
         # Update fields if provided
         if "merchant" in call.data:
@@ -190,7 +209,7 @@ async def async_setup_services(
         if "category_summary" in call.data:
             receipt.category_summary = call.data["category_summary"]
 
-        receipt.updated_at = datetime.utcnow().isoformat()
+        receipt.updated_at = datetime.now(timezone.utc).isoformat()
 
         await storage.async_update_receipt(receipt)
         await coordinator.async_refresh_data()
@@ -205,8 +224,7 @@ async def async_setup_services(
 
         receipt = storage.get_receipt(receipt_id)
         if not receipt:
-            _LOGGER.error("Receipt not found: %s", receipt_id)
-            return
+            raise ServiceValidationError(f"Receipt not found: {receipt_id}")
 
         # Delete image file if exists
         if receipt.image_path:
@@ -215,11 +233,17 @@ async def async_setup_services(
                 filename = os.path.basename(receipt.image_path)
                 receipt_dir = hass.config.path(RECEIPT_IMAGE_DIR)
                 full_path = os.path.join(receipt_dir, filename)
-                if os.path.exists(full_path):
-                    os.remove(full_path)
-                    _LOGGER.debug("Deleted receipt image: %s", full_path)
-            except Exception as err:
+                
+                # Delete using executor to avoid blocking
+                def delete_image():
+                    if os.path.exists(full_path):
+                        os.remove(full_path)
+                        
+                await hass.async_add_executor_job(delete_image)
+                _LOGGER.debug("Deleted receipt image: %s", full_path)
+            except OSError as err:
                 _LOGGER.error("Failed to delete receipt image: %s", err)
+                # Continue with receipt deletion even if image deletion fails
 
         await storage.async_delete_receipt(receipt_id)
         await coordinator.async_refresh_data()
