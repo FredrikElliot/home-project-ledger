@@ -1,0 +1,127 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Home Project Ledger",
+        "description": "Configure your home project ledger settings.",
+        "data": {
+          "currency": "Default currency (e.g., SEK, USD, EUR)"
+        }
+      }
+    },
+    "error": {
+      "already_configured": "Home Project Ledger is already configured."
+    },
+    "abort": {
+      "already_configured": "Home Project Ledger is already configured."
+    }
+  },
+  "services": {
+    "create_project": {
+      "name": "Create project",
+      "description": "Create a new home project.",
+      "fields": {
+        "name": {
+          "name": "Project name",
+          "description": "Name of the project"
+        },
+        "area_id": {
+          "name": "Area ID",
+          "description": "Home Assistant area ID (optional)"
+        }
+      }
+    },
+    "close_project": {
+      "name": "Close project",
+      "description": "Close an existing project.",
+      "fields": {
+        "project_id": {
+          "name": "Project ID",
+          "description": "ID of the project to close"
+        }
+      }
+    },
+    "add_receipt": {
+      "name": "Add receipt",
+      "description": "Add a receipt to a project.",
+      "fields": {
+        "project_id": {
+          "name": "Project ID",
+          "description": "ID of the project"
+        },
+        "area_id": {
+          "name": "Area ID",
+          "description": "Home Assistant area ID (optional)"
+        },
+        "merchant": {
+          "name": "Merchant",
+          "description": "Name of the merchant"
+        },
+        "date": {
+          "name": "Date",
+          "description": "Date of purchase (ISO format)"
+        },
+        "total": {
+          "name": "Total",
+          "description": "Total amount"
+        },
+        "currency": {
+          "name": "Currency",
+          "description": "Currency code (e.g., SEK, USD)"
+        },
+        "category_summary": {
+          "name": "Category summary",
+          "description": "Summary of categories (optional)"
+        },
+        "image_data": {
+          "name": "Image data",
+          "description": "Base64 encoded image (optional)"
+        },
+        "image_filename": {
+          "name": "Image filename",
+          "description": "Filename for the image (optional)"
+        }
+      }
+    },
+    "update_receipt": {
+      "name": "Update receipt",
+      "description": "Update an existing receipt.",
+      "fields": {
+        "receipt_id": {
+          "name": "Receipt ID",
+          "description": "ID of the receipt to update"
+        },
+        "merchant": {
+          "name": "Merchant",
+          "description": "Name of the merchant (optional)"
+        },
+        "date": {
+          "name": "Date",
+          "description": "Date of purchase (optional)"
+        },
+        "total": {
+          "name": "Total",
+          "description": "Total amount (optional)"
+        },
+        "currency": {
+          "name": "Currency",
+          "description": "Currency code (optional)"
+        },
+        "category_summary": {
+          "name": "Category summary",
+          "description": "Summary of categories (optional)"
+        }
+      }
+    },
+    "delete_receipt": {
+      "name": "Delete receipt",
+      "description": "Delete a receipt.",
+      "fields": {
+        "receipt_id": {
+          "name": "Receipt ID",
+          "description": "ID of the receipt to delete"
+        }
+      }
+    }
+  }
+}

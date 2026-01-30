@@ -1,0 +1,13 @@
+{
+  "domain": "home_project_ledger",
+  "name": "Home Project Ledger",
+  "codeowners": ["@FredrikElliot"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/FredrikElliot/home-project-ledger",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/FredrikElliot/home-project-ledger/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

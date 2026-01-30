@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home Project Ledger</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--primary-background-color, #fafafa);
+            color: var(--primary-text-color, #212121);
+            padding: 24px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 400;
+            margin-bottom: 24px;
+            color: var(--primary-text-color, #212121);
+        }
+
+        h2 {
+            font-size: 24px;
+            font-weight: 400;
+            margin: 24px 0 16px 0;
+            color: var(--primary-text-color, #212121);
+        }
+
+        .card {
+            background-color: var(--card-background-color, #fff);
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .button {
+            background-color: var(--primary-color, #03a9f4);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .button:hover {
+            background-color: var(--dark-primary-color, #0288d1);
+        }
+
+        .button.secondary {
+            background-color: var(--secondary-background-color, #e0e0e0);
+            color: var(--primary-text-color, #212121);
+        }
+
+        .button.secondary:hover {
+            background-color: var(--divider-color, #bdbdbd);
+        }
+
+        .button.danger {
+            background-color: #f44336;
+        }
+
+        .button.danger:hover {
+            background-color: #d32f2f;
+        }
+
+        .project-list, .receipt-list {
+            display: grid;
+            gap: 16px;
+        }
+
+        .project-item, .receipt-item {
+            background-color: var(--secondary-background-color, #f5f5f5);
+            border-radius: 4px;
+            padding: 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .project-item:hover, .receipt-item:hover {
+            background-color: var(--divider-color, #e0e0e0);
+        }
+
+        .project-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .project-name {
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .project-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-open {
+            background-color: #4caf50;
+            color: white;
+        }
+
+        .status-closed {
+            background-color: #9e9e9e;
+            color: white;
+        }
+
+        .project-details {
+            font-size: 14px;
+            color: var(--secondary-text-color, #757575);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background-color: var(--card-background-color, #fff);
+            border-radius: 8px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 500;
+        }
+
+        .close-button {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--secondary-text-color, #757575);
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--divider-color, #e0e0e0);
+            border-radius: 4px;
+            font-size: 14px;
+            background-color: var(--secondary-background-color, #fafafa);
+            color: var(--primary-text-color, #212121);
+        }
+
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--primary-color, #03a9f4);
+        }
+
+        .receipt-image {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+            margin-top: 8px;
+        }
+
+        .statistics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background-color: var(--card-background-color, #fff);
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: var(--secondary-text-color, #757575);
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 500;
+            color: var(--primary-color, #03a9f4);
+        }
+
+        .back-button {
+            margin-bottom: 16px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 48px;
+            color: var(--secondary-text-color, #757575);
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="app">
+        <div class="loading">Loading...</div>
+    </div>
+
+    <script>
+        // Application state
+        const state = {
+            projects: [],
+            receipts: [],
+            areas: {},
+            currentView: 'projects',
+            currentProject: null,
+            currency: 'SEK'
+        };
+
+        // Initialize app
+        async function init() {
+            try {
+                await loadData();
+                renderApp();
+            } catch (error) {
+                console.error('Failed to initialize app:', error);
+                showError('Failed to load data. Please refresh the page.');
+            }
+        }
+
+        // Load data from Home Assistant
+        async function loadData() {
+            try {
+                // Get all entities
+                const states = await window.hassConnection.sendMessagePromise({
+                    type: 'get_states'
+                });
+
+                // Extract project and receipt data from sensor attributes
+                const sensors = states.filter(s => s.entity_id.startsWith('sensor.home_project_ledger'));
+                
+                // For now, we'll call a service to get data
+                // In a real implementation, this would be more sophisticated
+                state.projects = [];
+                state.receipts = [];
+                
+            } catch (error) {
+                console.error('Error loading data:', error);
+            }
+        }
+
+        // Render the app
+        function renderApp() {
+            const app = document.getElementById('app');
+            
+            if (state.currentView === 'projects') {
+                app.innerHTML = renderProjectsView();
+            } else if (state.currentView === 'project-detail') {
+                app.innerHTML = renderProjectDetailView();
+            }
+
+            attachEventListeners();
+        }
+
+        // Render projects view
+        function renderProjectsView() {
+            const openProjects = state.projects.filter(p => p.status === 'open');
+            const closedProjects = state.projects.filter(p => p.status === 'closed');
+            
+            const totalSpend = state.receipts.reduce((sum, r) => sum + r.total, 0);
+
+            return `
+                <h1>🏠 Home Project Ledger</h1>
+
+                <div class="statistics">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Spend</div>
+                        <div class="stat-value">${formatCurrency(totalSpend)}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Open Projects</div>
+                        <div class="stat-value">${openProjects.length}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Receipts</div>
+                        <div class="stat-value">${state.receipts.length}</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <h2 style="margin: 0;">Projects</h2>
+                        <button class="button" onclick="openCreateProjectModal()">+ New Project</button>
+                    </div>
+
+                    ${openProjects.length === 0 && closedProjects.length === 0 ? 
+                        '<p>No projects yet. Create your first project to get started!</p>' :
+                        `
+                        ${openProjects.length > 0 ? `
+                            <h3>Open Projects</h3>
+                            <div class="project-list">
+                                ${openProjects.map(p => renderProjectItem(p)).join('')}
+                            </div>
+                        ` : ''}
+                        
+                        ${closedProjects.length > 0 ? `
+                            <h3>Closed Projects</h3>
+                            <div class="project-list">
+                                ${closedProjects.map(p => renderProjectItem(p)).join('')}
+                            </div>
+                        ` : ''}
+                        `
+                    }
+                </div>
+
+                <div id="modal-container"></div>
+            `;
+        }
+
+        // Render project item
+        function renderProjectItem(project) {
+            const receipts = state.receipts.filter(r => r.project_id === project.project_id);
+            const total = receipts.reduce((sum, r) => sum + r.total, 0);
+            const areaName = project.area_id ? (state.areas[project.area_id] || 'Unknown Area') : 'No Area';
+
+            return `
+                <div class="project-item" onclick="viewProject('${project.project_id}')">
+                    <div class="project-header">
+                        <div class="project-name">${escapeHtml(project.name)}</div>
+                        <div class="project-status status-${project.status}">${project.status.toUpperCase()}</div>
+                    </div>
+                    <div class="project-details">
+                        <div>Area: ${escapeHtml(areaName)}</div>
+                        <div>Receipts: ${receipts.length} | Total: ${formatCurrency(total)}</div>
+                        <div>Created: ${formatDate(project.created_at)}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Render project detail view
+        function renderProjectDetailView() {
+            const project = state.currentProject;
+            if (!project) return renderProjectsView();
+
+            const receipts = state.receipts.filter(r => r.project_id === project.project_id);
+            const total = receipts.reduce((sum, r) => sum + r.total, 0);
+
+            return `
+                <div class="back-button">
+                    <button class="button secondary" onclick="backToProjects()">← Back to Projects</button>
+                </div>
+
+                <h1>${escapeHtml(project.name)}</h1>
+
+                <div class="card">
+                    <div class="statistics">
+                        <div class="stat-card">
+                            <div class="stat-label">Project Total</div>
+                            <div class="stat-value">${formatCurrency(total)}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Receipts</div>
+                            <div class="stat-value">${receipts.length}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Status</div>
+                            <div class="stat-value" style="font-size: 18px;">${project.status.toUpperCase()}</div>
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="button" onclick="openAddReceiptModal()">+ Add Receipt</button>
+                        ${project.status === 'open' ? 
+                            '<button class="button secondary" onclick="closeProject()">Close Project</button>' : 
+                            ''}
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Receipts</h2>
+                    ${receipts.length === 0 ? 
+                        '<p>No receipts yet. Add your first receipt!</p>' :
+                        `<div class="receipt-list">
+                            ${receipts.map(r => renderReceiptItem(r)).join('')}
+                        </div>`
+                    }
+                </div>
+
+                <div id="modal-container"></div>
+            `;
+        }
+
+        // Render receipt item
+        function renderReceiptItem(receipt) {
+            return `
+                <div class="receipt-item">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div>
+                            <div style="font-weight: 500; font-size: 16px; margin-bottom: 4px;">
+                                ${escapeHtml(receipt.merchant)}
+                            </div>
+                            <div style="color: var(--secondary-text-color); font-size: 14px;">
+                                ${formatDate(receipt.date)} | ${formatCurrency(receipt.total)}
+                            </div>
+                            ${receipt.category_summary ? 
+                                `<div style="margin-top: 4px; font-size: 14px;">${escapeHtml(receipt.category_summary)}</div>` : 
+                                ''}
+                        </div>
+                        <button class="button danger" style="padding: 8px 16px;" onclick="deleteReceipt('${receipt.receipt_id}')">Delete</button>
+                    </div>
+                    ${receipt.image_path ? 
+                        `<img src="${receipt.image_path}" alt="Receipt" class="receipt-image" />` : 
+                        ''}
+                </div>
+            `;
+        }
+
+        // View project details
+        function viewProject(projectId) {
+            state.currentProject = state.projects.find(p => p.project_id === projectId);
+            state.currentView = 'project-detail';
+            renderApp();
+        }
+
+        // Back to projects
+        function backToProjects() {
+            state.currentView = 'projects';
+            state.currentProject = null;
+            renderApp();
+        }
+
+        // Open create project modal
+        function openCreateProjectModal() {
+            const modal = document.createElement('div');
+            modal.className = 'modal active';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <div class="modal-title">Create New Project</div>
+                        <button class="close-button" onclick="closeModal()">&times;</button>
+                    </div>
+                    <form onsubmit="createProject(event)">
+                        <div class="form-group">
+                            <label class="form-label">Project Name *</label>
+                            <input type="text" class="form-input" id="project-name" required />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Area (Optional)</label>
+                            <select class="form-select" id="project-area">
+                                <option value="">Select an area...</option>
+                                ${Object.entries(state.areas).map(([id, name]) => 
+                                    `<option value="${id}">${escapeHtml(name)}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                        <button type="submit" class="button">Create Project</button>
+                    </form>
+                </div>
+            `;
+            document.getElementById('modal-container').appendChild(modal);
+        }
+
+        // Open add receipt modal
+        function openAddReceiptModal() {
+            const modal = document.createElement('div');
+            modal.className = 'modal active';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <div class="modal-title">Add Receipt</div>
+                        <button class="close-button" onclick="closeModal()">&times;</button>
+                    </div>
+                    <form onsubmit="addReceipt(event)">
+                        <div class="form-group">
+                            <label class="form-label">Merchant *</label>
+                            <input type="text" class="form-input" id="receipt-merchant" required />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Date *</label>
+                            <input type="date" class="form-input" id="receipt-date" required />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Total Amount *</label>
+                            <input type="number" step="0.01" class="form-input" id="receipt-total" required />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Currency *</label>
+                            <input type="text" class="form-input" id="receipt-currency" value="${state.currency}" required />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Category Summary (Optional)</label>
+                            <input type="text" class="form-input" id="receipt-category" />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Receipt Image (Optional)</label>
+                            <input type="file" class="form-input" id="receipt-image" accept="image/*" />
+                        </div>
+                        <button type="submit" class="button">Add Receipt</button>
+                    </form>
+                </div>
+            `;
+            document.getElementById('modal-container').appendChild(modal);
+        }
+
+        // Close modal
+        function closeModal() {
+            const modalContainer = document.getElementById('modal-container');
+            modalContainer.innerHTML = '';
+        }
+
+        // Create project
+        async function createProject(event) {
+            event.preventDefault();
+            const name = document.getElementById('project-name').value;
+            const area_id = document.getElementById('project-area').value || null;
+
+            try {
+                await callService('create_project', { name, area_id });
+                closeModal();
+                await loadData();
+                renderApp();
+            } catch (error) {
+                console.error('Failed to create project:', error);
+                alert('Failed to create project. Please try again.');
+            }
+        }
+
+        // Add receipt
+        async function addReceipt(event) {
+            event.preventDefault();
+            
+            const merchant = document.getElementById('receipt-merchant').value;
+            const date = document.getElementById('receipt-date').value;
+            const total = parseFloat(document.getElementById('receipt-total').value);
+            const currency = document.getElementById('receipt-currency').value;
+            const category_summary = document.getElementById('receipt-category').value || null;
+            const imageFile = document.getElementById('receipt-image').files[0];
+
+            const data = {
+                project_id: state.currentProject.project_id,
+                area_id: state.currentProject.area_id,
+                merchant,
+                date,
+                total,
+                currency,
+                category_summary
+            };
+
+            // Handle image upload
+            if (imageFile) {
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    const base64 = e.target.result.split(',')[1];
+                    data.image_data = base64;
+                    data.image_filename = imageFile.name;
+                    
+                    try {
+                        await callService('add_receipt', data);
+                        closeModal();
+                        await loadData();
+                        renderApp();
+                    } catch (error) {
+                        console.error('Failed to add receipt:', error);
+                        alert('Failed to add receipt. Please try again.');
+                    }
+                };
+                reader.readAsDataURL(imageFile);
+            } else {
+                try {
+                    await callService('add_receipt', data);
+                    closeModal();
+                    await loadData();
+                    renderApp();
+                } catch (error) {
+                    console.error('Failed to add receipt:', error);
+                    alert('Failed to add receipt. Please try again.');
+                }
+            }
+        }
+
+        // Close project
+        async function closeProject() {
+            if (!confirm('Are you sure you want to close this project?')) return;
+
+            try {
+                await callService('close_project', { project_id: state.currentProject.project_id });
+                await loadData();
+                renderApp();
+            } catch (error) {
+                console.error('Failed to close project:', error);
+                alert('Failed to close project. Please try again.');
+            }
+        }
+
+        // Delete receipt
+        async function deleteReceipt(receiptId) {
+            if (!confirm('Are you sure you want to delete this receipt?')) return;
+
+            try {
+                await callService('delete_receipt', { receipt_id: receiptId });
+                await loadData();
+                renderApp();
+            } catch (error) {
+                console.error('Failed to delete receipt:', error);
+                alert('Failed to delete receipt. Please try again.');
+            }
+        }
+
+        // Call Home Assistant service
+        async function callService(service, data) {
+            return await window.hassConnection.sendMessagePromise({
+                type: 'call_service',
+                domain: 'home_project_ledger',
+                service: service,
+                service_data: data
+            });
+        }
+
+        // Attach event listeners
+        function attachEventListeners() {
+            // Modal close on background click
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) closeModal();
+                });
+            });
+        }
+
+        // Utility functions
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('sv-SE', {
+                style: 'currency',
+                currency: state.currency
+            }).format(amount);
+        }
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString('sv-SE');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showError(message) {
+            document.getElementById('app').innerHTML = `
+                <div class="card">
+                    <h2>Error</h2>
+                    <p>${escapeHtml(message)}</p>
+                </div>
+            `;
+        }
+
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+</body>
+</html>
