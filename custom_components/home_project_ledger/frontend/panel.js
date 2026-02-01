@@ -69,6 +69,19 @@ const TRANSLATIONS = {
     remaining: "Remaining",
     overBudget: "Over budget",
     noBudget: "No budget set",
+    budgetByCategory: "Budget by Category",
+    addCategoryBudget: "Add category budget",
+    categoriesOptional: "Categories (optional)",
+    splitType: "Cost Split",
+    splitEqual: "Split equally",
+    splitPercentage: "By percentage",
+    splitAbsolute: "By amount",
+    addCategory: "Add category",
+    removeCategory: "Remove",
+    categoryAmount: "Amount",
+    categoryPercent: "Percentage",
+    splitMustEqual100: "Percentages must total 100%",
+    splitMustEqualTotal: "Amounts must equal total",
     
     // Hints
     existingMerchants: "{count} existing merchants",
@@ -235,6 +248,19 @@ const TRANSLATIONS = {
     remaining: "Återstår",
     overBudget: "Över budget",
     noBudget: "Ingen budget satt",
+    budgetByCategory: "Budget per kategori",
+    addCategoryBudget: "Lägg till kategoribudget",
+    categoriesOptional: "Kategorier (valfritt)",
+    splitType: "Kostnadsfördelning",
+    splitEqual: "Dela lika",
+    splitPercentage: "Procentuellt",
+    splitAbsolute: "Efter belopp",
+    addCategory: "Lägg till kategori",
+    removeCategory: "Ta bort",
+    categoryAmount: "Belopp",
+    categoryPercent: "Procent",
+    splitMustEqual100: "Procenten måste summera till 100%",
+    splitMustEqualTotal: "Beloppen måste summera till totalen",
     
     // Hints
     existingMerchants: "{count} befintliga butiker",
@@ -599,6 +625,38 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .autocomplete-item.create-new svg { color: var(--primary-color, #03a9f4); }
         .autocomplete-match { font-weight: 500; }
         .tag-hint { font-size: 11px; color: var(--secondary-text-color, #757575); margin-top: 4px; }
+        
+        /* Category tags / pills */
+        .category-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+        .category-tag { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background-color: var(--primary-color, #03a9f4); color: white; border-radius: 16px; font-size: 13px; }
+        .category-tag .tag-remove { width: 16px; height: 16px; border: none; background: none; padding: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; color: white; opacity: 0.8; }
+        .category-tag .tag-remove:hover { opacity: 1; }
+        .category-tag .tag-remove svg { width: 14px; height: 14px; }
+        
+        /* Split settings container */
+        .split-settings { margin-top: 12px; padding: 12px; background-color: var(--secondary-background-color, #f5f5f5); border-radius: 8px; }
+        .split-type-selector { display: flex; gap: 8px; margin-bottom: 12px; }
+        .split-type-btn { flex: 1; padding: 8px 12px; border: 1px solid var(--divider-color, #e0e0e0); background-color: var(--card-background-color, #fff); border-radius: 6px; font-size: 12px; cursor: pointer; color: var(--primary-text-color, #212121); transition: all 0.15s; }
+        .split-type-btn:hover { border-color: var(--primary-color, #03a9f4); }
+        .split-type-btn.active { background-color: var(--primary-color, #03a9f4); color: white; border-color: var(--primary-color, #03a9f4); }
+        .split-values { display: flex; flex-direction: column; gap: 8px; }
+        .split-row { display: flex; align-items: center; gap: 8px; }
+        .split-row .split-category { flex: 1; font-size: 13px; color: var(--primary-text-color, #212121); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .split-row input { width: 80px; padding: 6px 8px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: 4px; font-size: 13px; text-align: right; }
+        .split-row .split-suffix { font-size: 13px; color: var(--secondary-text-color, #757575); width: 20px; }
+        .split-error { color: var(--error-color, #f44336); font-size: 12px; margin-top: 8px; }
+        
+        /* Category budget rows for project modal */
+        .category-budget-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+        .category-budget-row { display: flex; align-items: center; gap: 8px; }
+        .category-budget-row input[type="text"] { flex: 2; padding: 8px 12px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: 6px; font-size: 13px; }
+        .category-budget-row input[type="number"] { flex: 1; padding: 8px 12px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: 6px; font-size: 13px; text-align: right; }
+        .category-budget-row .remove-budget-btn { width: 32px; height: 32px; border: none; background: none; cursor: pointer; color: var(--secondary-text-color, #757575); display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+        .category-budget-row .remove-budget-btn:hover { background-color: rgba(244, 67, 54, 0.1); color: var(--error-color, #f44336); }
+        .category-budget-row .remove-budget-btn svg { width: 18px; height: 18px; }
+        .add-category-budget-btn { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border: 1px dashed var(--divider-color, #e0e0e0); background: none; border-radius: 6px; font-size: 13px; color: var(--secondary-text-color, #757575); cursor: pointer; width: 100%; justify-content: center; }
+        .add-category-budget-btn:hover { border-color: var(--primary-color, #03a9f4); color: var(--primary-color, #03a9f4); }
+        .add-category-budget-btn svg { width: 16px; height: 16px; }
         
         /* Tab content areas */
         .tab-content { display: none; }
@@ -1377,6 +1435,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
     const isEdit = !!data.project_id;
     const title = isEdit ? this._t('editProject') : this._t('newProject');
     const closeIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/></svg>';
+    const removeIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/></svg>';
+    const addIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"/></svg>';
 
     // Build area options
     let areaOptions = '<option value="">' + this._t('noArea') + '</option>';
@@ -1384,6 +1444,22 @@ class HomeProjectLedgerPanel extends HTMLElement {
       const selected = data.area_id === id ? ' selected' : '';
       areaOptions += '<option value="' + id + '"' + selected + '>' + this._escapeHtml(name) + '</option>';
     });
+    
+    // Get category budgets from state or from data
+    const categoryBudgets = this._state.categoryBudgets || 
+      (data.budget_by_category ? Object.entries(data.budget_by_category).map(([cat, amount]) => ({ category: cat, amount })) : []);
+    
+    // Render category budget rows
+    let categoryBudgetHtml = '<div class="category-budget-list" id="category-budget-list">';
+    categoryBudgets.forEach((item, i) => {
+      categoryBudgetHtml += '<div class="category-budget-row">' +
+        '<input type="text" class="category-budget-name" data-index="' + i + '" value="' + this._escapeHtml(item.category || '') + '" placeholder="' + this._t('categoryOptional').replace(' (optional)', '').replace(' (valfritt)', '') + '">' +
+        '<input type="number" class="category-budget-amount" data-index="' + i + '" value="' + (item.amount || '') + '" placeholder="0" min="0" step="0.01">' +
+        '<button type="button" class="remove-budget-btn" data-action="remove-category-budget" data-index="' + i + '">' + removeIcon + '</button>' +
+      '</div>';
+    });
+    categoryBudgetHtml += '</div>' +
+      '<button type="button" class="add-category-budget-btn" data-action="add-category-budget">' + addIcon + this._t('addCategoryBudget') + '</button>';
 
     return '<div class="modal-overlay" data-action="close-modal">' +
       '<div class="modal" onclick="event.stopPropagation()">' +
@@ -1395,12 +1471,78 @@ class HomeProjectLedgerPanel extends HTMLElement {
           '<div class="form-group"><label>' + this._t('projectName') + ' *</label><input type="text" id="project-name" value="' + this._escapeHtml(data.name || '') + '" placeholder="' + this._t('projectNamePlaceholder') + '" required></div>' +
           '<div class="form-group"><label>' + this._t('areaOptional') + '</label><select id="project-area">' + areaOptions + '</select></div>' +
           '<div class="form-group"><label>' + this._t('budgetOptional') + '</label><input type="number" id="project-budget" value="' + (data.budget || '') + '" placeholder="' + this._t('budgetPlaceholder') + '" min="0" step="0.01"></div>' +
+          '<div class="form-group"><label>' + this._t('budgetByCategory') + '</label>' + categoryBudgetHtml + '</div>' +
         '</div>' +
         '<div class="modal-actions">' +
           '<button class="btn btn-secondary" data-action="close-modal">' + this._t('cancel') + '</button>' +
           '<button class="btn btn-primary" data-action="save-project">' + (isEdit ? this._t('saveChanges') : this._t('createProject')) + '</button>' +
         '</div>' +
       '</div>' +
+    '</div>';
+  }
+
+  _renderCategoriesSection(data, allCategories, categoryHint) {
+    const removeIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/></svg>';
+    
+    // Get selected categories from modal state (or from existing receipt data)
+    const selectedCategories = this._state.selectedCategories || data.categories || (data.category_summary ? [data.category_summary] : []);
+    const splitType = this._state.categorySplitType || data.category_split_type || 'equal';
+    const splitValues = this._state.categorySplitValues || data.category_split || {};
+    
+    // Render selected category tags
+    let tagsHtml = '';
+    if (selectedCategories.length > 0) {
+      tagsHtml = '<div class="category-tags" id="category-tags">' +
+        selectedCategories.map((cat, i) => 
+          '<span class="category-tag">' + this._escapeHtml(cat) + 
+          '<button class="tag-remove" data-action="remove-category" data-index="' + i + '">' + removeIcon + '</button></span>'
+        ).join('') +
+      '</div>';
+    }
+    
+    // Render split settings only if more than one category is selected
+    let splitSettingsHtml = '';
+    if (selectedCategories.length > 1) {
+      const isEqual = splitType === 'equal';
+      const isPercent = splitType === 'percentage';
+      const isAbsolute = splitType === 'absolute';
+      
+      let splitValuesHtml = '';
+      if (!isEqual) {
+        splitValuesHtml = '<div class="split-values">' +
+          selectedCategories.map(cat => {
+            const val = splitValues[cat] || '';
+            const suffix = isPercent ? '%' : '';
+            return '<div class="split-row">' +
+              '<span class="split-category">' + this._escapeHtml(cat) + '</span>' +
+              '<input type="number" class="split-value-input" data-category="' + this._escapeHtml(cat) + '" value="' + val + '" placeholder="0" step="0.01" min="0">' +
+              '<span class="split-suffix">' + suffix + '</span>' +
+            '</div>';
+          }).join('') +
+        '</div>' +
+        '<div class="split-error" id="split-error" style="display:none;"></div>';
+      }
+      
+      splitSettingsHtml = '<div class="split-settings">' +
+        '<div class="split-type-selector">' +
+          '<button type="button" class="split-type-btn' + (isEqual ? ' active' : '') + '" data-action="set-split-type" data-type="equal">' + this._t('splitEqual') + '</button>' +
+          '<button type="button" class="split-type-btn' + (isPercent ? ' active' : '') + '" data-action="set-split-type" data-type="percentage">' + this._t('splitPercentage') + '</button>' +
+          '<button type="button" class="split-type-btn' + (isAbsolute ? ' active' : '') + '" data-action="set-split-type" data-type="absolute">' + this._t('splitAbsolute') + '</button>' +
+        '</div>' +
+        splitValuesHtml +
+      '</div>';
+    }
+    
+    return '<div class="form-group">' +
+      '<label>' + this._t('categoriesOptional') + '</label>' +
+      tagsHtml +
+      '<div class="autocomplete-container" data-field="category">' +
+        '<input type="text" class="autocomplete-input" id="receipt-category" value="" placeholder="' + this._t('searchOrTypeNew') + '" autocomplete="off">' +
+        '<svg class="autocomplete-search-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"/></svg>' +
+        '<div class="autocomplete-dropdown" id="category-dropdown" style="display:none;"></div>' +
+      '</div>' +
+      '<div class="tag-hint">' + categoryHint + '</div>' +
+      splitSettingsHtml +
     '</div>';
   }
 
@@ -1495,15 +1637,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
           '</div>' +
           '<div class="form-group"><label>' + this._t('amount') + ' *</label><input type="number" id="receipt-amount" value="' + (data.total || '') + '" placeholder="0.00" step="0.01" min="0" required></div>' +
           '<div class="form-group"><label>' + this._t('date') + ' *</label><input type="date" id="receipt-date" value="' + (data.date || today) + '" required></div>' +
-          '<div class="form-group">' +
-            '<label>' + this._t('categoryOptional') + '</label>' +
-            '<div class="autocomplete-container" data-field="category">' +
-              '<input type="text" class="autocomplete-input" id="receipt-category" value="' + this._escapeHtml(data.category_summary || '') + '" placeholder="' + this._t('searchOrTypeNew') + '" autocomplete="off">' +
-              '<svg class="autocomplete-search-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"/></svg>' +
-              '<div class="autocomplete-dropdown" id="category-dropdown" style="display:none;"></div>' +
-            '</div>' +
-            '<div class="tag-hint">' + categoryHint + '</div>' +
-          '</div>' +
+          this._renderCategoriesSection(data, allCategories, categoryHint) +
           photoSectionHtml +
         '</div>' +
         '<div class="modal-actions">' +
@@ -1641,12 +1775,43 @@ class HomeProjectLedgerPanel extends HTMLElement {
       this._setupAutocomplete(merchantInput, merchantDropdown, this._getAllMerchants());
     }
 
-    // Autocomplete for category field
+    // Autocomplete for category field (multi-select mode)
     const categoryInput = this._container.querySelector("#receipt-category");
     const categoryDropdown = this._container.querySelector("#category-dropdown");
     if (categoryInput && categoryDropdown) {
-      this._setupAutocomplete(categoryInput, categoryDropdown, this._getAllCategories());
+      this._setupCategoryAutocomplete(categoryInput, categoryDropdown, this._getAllCategories());
     }
+    
+    // Listen for split value input changes
+    this._container.querySelectorAll(".split-value-input").forEach(input => {
+      input.addEventListener("input", (e) => {
+        const category = e.target.dataset.category;
+        const value = parseFloat(e.target.value) || 0;
+        if (!this._state.categorySplitValues) {
+          this._state.categorySplitValues = {};
+        }
+        this._state.categorySplitValues[category] = value;
+      });
+    });
+    
+    // Listen for category budget input changes (project modal)
+    this._container.querySelectorAll(".category-budget-name").forEach(input => {
+      input.addEventListener("input", (e) => {
+        const index = parseInt(e.target.dataset.index, 10);
+        if (!isNaN(index) && this._state.categoryBudgets && this._state.categoryBudgets[index]) {
+          this._state.categoryBudgets[index].category = e.target.value;
+        }
+      });
+    });
+    
+    this._container.querySelectorAll(".category-budget-amount").forEach(input => {
+      input.addEventListener("input", (e) => {
+        const index = parseInt(e.target.dataset.index, 10);
+        if (!isNaN(index) && this._state.categoryBudgets && this._state.categoryBudgets[index]) {
+          this._state.categoryBudgets[index].amount = parseFloat(e.target.value) || 0;
+        }
+      });
+    });
 
     // Photo upload file input handlers
     const photoUpload = this._container.querySelector("#photo-upload");
@@ -1750,15 +1915,112 @@ class HomeProjectLedgerPanel extends HTMLElement {
     });
   }
 
+  _setupCategoryAutocomplete(input, dropdown, allOptions) {
+    let highlightedIndex = -1;
+    const checkIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"/></svg>';
+    const plusIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"/></svg>';
+
+    const addCategory = (category) => {
+      if (!category) return;
+      if (!this._state.selectedCategories) {
+        this._state.selectedCategories = [];
+      }
+      // Don't add duplicates
+      if (!this._state.selectedCategories.includes(category)) {
+        this._state.selectedCategories.push(category);
+        this._render();
+      }
+      input.value = '';
+      dropdown.style.display = 'none';
+    };
+
+    const showDropdown = (filteredOptions, query) => {
+      const selectedCats = this._state.selectedCategories || [];
+      // Filter out already selected categories
+      const availableOptions = filteredOptions.filter(opt => !selectedCats.includes(opt));
+      
+      let html = '';
+      
+      // Show matching options with check icon
+      availableOptions.forEach((opt, idx) => {
+        const isHighlighted = idx === highlightedIndex ? ' highlighted' : '';
+        html += '<div class="autocomplete-item' + isHighlighted + '" data-value="' + this._escapeHtml(opt) + '">' + checkIcon + '<span>' + this._escapeHtml(opt) + '</span></div>';
+      });
+      
+      // Show "Create new" option if query doesn't exactly match any option
+      const exactMatch = allOptions.some(opt => opt.toLowerCase() === query.toLowerCase());
+      const alreadySelected = selectedCats.some(cat => cat.toLowerCase() === query.toLowerCase());
+      if (query && !exactMatch && !alreadySelected) {
+        const createIdx = availableOptions.length;
+        const isHighlighted = createIdx === highlightedIndex ? ' highlighted' : '';
+        html += '<div class="autocomplete-item create-new' + isHighlighted + '" data-value="' + this._escapeHtml(query) + '" data-create="true">' + plusIcon + '<span>' + this._t('createNew', { name: this._escapeHtml(query) }) + '</span></div>';
+      }
+      
+      if (!html) {
+        dropdown.style.display = 'none';
+        return;
+      }
+      
+      dropdown.innerHTML = html;
+      dropdown.style.display = 'block';
+
+      dropdown.querySelectorAll('.autocomplete-item').forEach(item => {
+        item.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          addCategory(item.dataset.value);
+        });
+      });
+    };
+
+    const filterOptions = () => {
+      const query = input.value.trim();
+      if (!query) {
+        dropdown.style.display = 'none';
+        return;
+      }
+      const queryLower = query.toLowerCase();
+      const filtered = allOptions.filter(opt => opt.toLowerCase().includes(queryLower));
+      highlightedIndex = -1;
+      showDropdown(filtered, query);
+    };
+
+    input.addEventListener('input', filterOptions);
+    input.addEventListener('focus', filterOptions);
+    input.addEventListener('blur', () => {
+      setTimeout(() => { dropdown.style.display = 'none'; }, 150);
+    });
+    input.addEventListener('keydown', (e) => {
+      const items = dropdown.querySelectorAll('.autocomplete-item');
+      const maxIndex = items.length - 1;
+      
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        highlightedIndex = Math.min(highlightedIndex + 1, maxIndex);
+        items.forEach((item, idx) => item.classList.toggle('highlighted', idx === highlightedIndex));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        highlightedIndex = Math.max(highlightedIndex - 1, 0);
+        items.forEach((item, idx) => item.classList.toggle('highlighted', idx === highlightedIndex));
+      } else if (e.key === 'Enter' && highlightedIndex >= 0) {
+        e.preventDefault();
+        addCategory(items[highlightedIndex].dataset.value);
+      } else if (e.key === 'Escape') {
+        dropdown.style.display = 'none';
+      }
+    });
+  }
+
   _handleAction(dataset) {
     const action = dataset.action;
     switch (action) {
       case "add-project":
+        this._state.categoryBudgets = null; // Clear category budgets
         this._state.modal = { type: 'project', data: {} };
         this._render();
         break;
       case "open-add-project":
         // Called from the no-projects modal - close current modal and open project modal
+        this._state.categoryBudgets = null;
         this._state.modal = { type: 'project', data: {} };
         this._render();
         break;
@@ -1769,6 +2031,9 @@ class HomeProjectLedgerPanel extends HTMLElement {
       case "quick-add-receipt":
         // Open receipt modal without a pre-selected project
         this._state.pendingPhotos = []; // Clear pending photos
+        this._state.selectedCategories = null; // Clear categories
+        this._state.categorySplitType = null;
+        this._state.categorySplitValues = null;
         this._state.modal = { type: 'receipt', data: {} };
         this._render();
         break;
@@ -1778,6 +2043,10 @@ class HomeProjectLedgerPanel extends HTMLElement {
       case "edit-project":
         const projectToEdit = this._state.projects.find(p => p.project_id === dataset.projectId);
         if (projectToEdit) {
+          // Initialize category budgets from project data
+          this._state.categoryBudgets = projectToEdit.budget_by_category 
+            ? Object.entries(projectToEdit.budget_by_category).map(([cat, amount]) => ({ category: cat, amount }))
+            : [];
           this._state.modal = { type: 'project', data: { ...projectToEdit } };
         }
         this._state.openMenuId = null;
@@ -1803,6 +2072,9 @@ class HomeProjectLedgerPanel extends HTMLElement {
         break;
       case "add-receipt":
         this._state.pendingPhotos = []; // Clear pending photos when opening new receipt modal
+        this._state.selectedCategories = null; // Clear categories
+        this._state.categorySplitType = null;
+        this._state.categorySplitValues = null;
         this._state.modal = { type: 'receipt', data: { project_id: dataset.projectId } };
         this._render();
         break;
@@ -1811,6 +2083,11 @@ class HomeProjectLedgerPanel extends HTMLElement {
         const project = this._state.projects.find(p => p.project_id === dataset.projectId);
         const receipt = project?.receipts?.find(r => r.receipt_id === dataset.receiptId);
         if (receipt) {
+          // Initialize category state from receipt data
+          const cats = receipt.categories || (receipt.category_summary ? [receipt.category_summary] : []);
+          this._state.selectedCategories = cats.length > 0 ? [...cats] : null;
+          this._state.categorySplitType = receipt.category_split_type || 'equal';
+          this._state.categorySplitValues = receipt.category_split ? { ...receipt.category_split } : {};
           this._state.modal = { type: 'receipt', data: { ...receipt, project_id: dataset.projectId } };
         }
         this._state.openMenuId = null;
@@ -1905,7 +2182,49 @@ class HomeProjectLedgerPanel extends HTMLElement {
         this._state.modal = null;
         this._state.pendingPhotos = []; // Clear pending photos when closing modal
         this._state.photoViewerIndex = -1;
+        this._state.selectedCategories = null; // Clear selected categories
+        this._state.categorySplitType = null;
+        this._state.categorySplitValues = null;
+        this._state.categoryBudgets = null; // Clear category budgets
         this._render();
+        break;
+      case "remove-category":
+        const catIndex = parseInt(dataset.index, 10);
+        if (!isNaN(catIndex) && this._state.selectedCategories) {
+          const removedCat = this._state.selectedCategories[catIndex];
+          this._state.selectedCategories.splice(catIndex, 1);
+          // Also remove from split values
+          if (this._state.categorySplitValues && removedCat) {
+            delete this._state.categorySplitValues[removedCat];
+          }
+          // Reset split type if only one category remains
+          if (this._state.selectedCategories.length <= 1) {
+            this._state.categorySplitType = 'equal';
+            this._state.categorySplitValues = {};
+          }
+          this._render();
+        }
+        break;
+      case "set-split-type":
+        this._state.categorySplitType = dataset.type;
+        if (dataset.type === 'equal') {
+          this._state.categorySplitValues = {};
+        }
+        this._render();
+        break;
+      case "add-category-budget":
+        if (!this._state.categoryBudgets) {
+          this._state.categoryBudgets = [];
+        }
+        this._state.categoryBudgets.push({ category: '', amount: '' });
+        this._render();
+        break;
+      case "remove-category-budget":
+        const budgetIndex = parseInt(dataset.index, 10);
+        if (!isNaN(budgetIndex) && this._state.categoryBudgets) {
+          this._state.categoryBudgets.splice(budgetIndex, 1);
+          this._render();
+        }
         break;
     }
   }
@@ -1929,6 +2248,16 @@ class HomeProjectLedgerPanel extends HTMLElement {
     const areaId = this._container.querySelector("#project-area")?.value || null;
     const budgetInput = this._container.querySelector("#project-budget")?.value;
     const budget = budgetInput ? parseFloat(budgetInput) : null;
+    
+    // Build budget_by_category from state
+    const categoryBudgets = this._state.categoryBudgets || [];
+    const budgetByCategory = {};
+    categoryBudgets.forEach(item => {
+      if (item.category && item.category.trim() && item.amount > 0) {
+        budgetByCategory[item.category.trim()] = item.amount;
+      }
+    });
+    const hasCategoryBudgets = Object.keys(budgetByCategory).length > 0;
 
     if (!name) {
       alert(this._t('pleaseEnterProjectName'));
@@ -1937,12 +2266,17 @@ class HomeProjectLedgerPanel extends HTMLElement {
 
     try {
       if (isEdit) {
-        await this._hass.callService(DOMAIN, "update_project", {
+        const updatePayload = {
           project_id: data.project_id,
           name,
           area_id: areaId || null,
           budget: budget,
-        });
+        };
+        
+        // Include budget_by_category (can be set to null to clear)
+        updatePayload.budget_by_category = hasCategoryBudgets ? budgetByCategory : null;
+        
+        await this._hass.callService(DOMAIN, "update_project", updatePayload);
       } else {
         const serviceData = {
           name,
@@ -1951,8 +2285,12 @@ class HomeProjectLedgerPanel extends HTMLElement {
         if (budget !== null && budget > 0) {
           serviceData.budget = budget;
         }
+        if (hasCategoryBudgets) {
+          serviceData.budget_by_category = budgetByCategory;
+        }
         await this._hass.callService(DOMAIN, "create_project", serviceData);
       }
+      this._state.categoryBudgets = null;
       this._state.modal = null;
       setTimeout(() => this._loadData(), 500);
     } catch (error) {
@@ -1999,7 +2337,11 @@ class HomeProjectLedgerPanel extends HTMLElement {
     const merchant = this._container.querySelector("#receipt-merchant")?.value;
     const amount = parseFloat(this._container.querySelector("#receipt-amount")?.value);
     const date = this._container.querySelector("#receipt-date")?.value;
-    const category = this._container.querySelector("#receipt-category")?.value;
+    
+    // Get categories from state (multi-category support)
+    const categories = this._state.selectedCategories || [];
+    const splitType = this._state.categorySplitType || 'equal';
+    const splitValues = this._state.categorySplitValues || {};
     
     // Get project_id from selector if present (quick add mode), or from modal data
     const projectSelect = this._container.querySelector("#receipt-project");
@@ -2013,6 +2355,23 @@ class HomeProjectLedgerPanel extends HTMLElement {
     if (!data.receipt_id && !projectId) {
       alert(this._t('pleaseSelectProject'));
       return;
+    }
+    
+    // Validate split values if not equal split
+    if (categories.length > 1 && splitType !== 'equal') {
+      if (splitType === 'percentage') {
+        const total = Object.values(splitValues).reduce((sum, v) => sum + (v || 0), 0);
+        if (Math.abs(total - 100) > 0.01) {
+          alert(this._t('splitMustEqual100'));
+          return;
+        }
+      } else if (splitType === 'absolute') {
+        const total = Object.values(splitValues).reduce((sum, v) => sum + (v || 0), 0);
+        if (Math.abs(total - amount) > 0.01) {
+          alert(this._t('splitMustEqualTotal'));
+          return;
+        }
+      }
     }
 
     // Prepare images for upload (convert pending photos to base64 format)
@@ -2034,8 +2393,29 @@ class HomeProjectLedgerPanel extends HTMLElement {
           merchant,
           total: amount,
           date,
-          category_summary: category || undefined,
         };
+        
+        // Handle categories
+        if (categories.length > 0) {
+          updatePayload.categories = categories;
+          // For backward compatibility, also set category_summary
+          updatePayload.category_summary = categories.join(', ');
+          
+          // Only send split data if more than one category and not equal
+          if (categories.length > 1 && splitType !== 'equal') {
+            updatePayload.category_split = splitValues;
+            updatePayload.category_split_type = splitType;
+          } else {
+            // Clear split data for equal split or single category
+            updatePayload.category_split = null;
+            updatePayload.category_split_type = null;
+          }
+        } else {
+          updatePayload.categories = null;
+          updatePayload.category_summary = null;
+          updatePayload.category_split = null;
+          updatePayload.category_split_type = null;
+        }
         
         // Add new images if any
         if (imagesToAdd.length > 0) {
@@ -2056,8 +2436,18 @@ class HomeProjectLedgerPanel extends HTMLElement {
           total: amount,
           date,
           currency: this._state.currency,
-          category_summary: category || undefined,
         };
+        
+        // Handle categories
+        if (categories.length > 0) {
+          addPayload.categories = categories;
+          addPayload.category_summary = categories.join(', ');
+          
+          if (categories.length > 1 && splitType !== 'equal') {
+            addPayload.category_split = splitValues;
+            addPayload.category_split_type = splitType;
+          }
+        }
         
         // Include images if any
         if (imagesToAdd.length > 0) {
@@ -2067,8 +2457,11 @@ class HomeProjectLedgerPanel extends HTMLElement {
         await this._hass.callService(DOMAIN, "add_receipt", addPayload);
       }
       
-      // Clear pending photos and close modal
+      // Clear pending photos and categories, close modal
       this._state.pendingPhotos = [];
+      this._state.selectedCategories = null;
+      this._state.categorySplitType = null;
+      this._state.categorySplitValues = null;
       this._state.modal = null;
       setTimeout(() => this._loadData(), 500);
     } catch (error) {
