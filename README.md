@@ -10,7 +10,8 @@ A Home Assistant custom integration for tracking home renovation projects, recei
 ✨ **Track Projects** - Create and manage home renovation projects  
 📸 **Receipt Management** - Upload receipt images and store metadata  
 🏠 **Area Integration** - Associate projects with Home Assistant Areas  
-📊 **Statistics & Sensors** - Automatic monetary sensors for tracking spending  
+📊 **Statistics Dashboard** - Visual charts and analytics for spending trends  
+📈 **Monetary Sensors** - Automatic sensors with long-term statistics support  
 🎨 **Custom Panel** - Dedicated sidebar page for managing everything  
 🌍 **Translations** - Available in English and Swedish  
 
@@ -83,7 +84,48 @@ The integration automatically creates sensors for:
 - **Area Spend** - Spending per Home Assistant area
 - **Project Spend** - Spending per project
 
-These sensors can be used in automations, dashboards, and the Energy panel.
+These sensors have the `SensorDeviceClass.MONETARY` device class and `SensorStateClass.TOTAL` state class, which enables:
+- Long-term statistics recording in Home Assistant
+- Integration with the Energy dashboard
+- Historical trend analysis
+- Use in automations with statistical triggers
+
+### Statistics Dashboard
+
+The built-in Statistics tab provides visual analytics similar to Home Assistant's Energy panel:
+
+- **Spending Over Time** - Monthly spending chart with area graph
+- **Spending by Project** - Bar chart showing top projects
+- **Spending by Area** - Pie chart showing distribution across areas
+- **Spending by Category** - Bar chart showing top expense categories
+- **Spending by Merchant** - Bar chart showing top merchants
+
+You can filter statistics by time period:
+- This Month / Last Month
+- Last 30 Days / Last 90 Days
+- This Year / Last 12 Months
+- All Time
+
+### Dashboard Buttons
+
+The integration provides button entities for quick access:
+
+- **Add Receipt** (`button.add_receipt`) - Press to trigger a receipt add event
+- **Open Project Ledger** (`button.open_project_ledger`) - Press to trigger a panel open event
+
+**Adding a Quick Add Receipt button to your dashboard:**
+
+```yaml
+type: button
+entity: button.add_receipt
+name: Add Receipt
+icon: mdi:receipt-text-plus
+tap_action:
+  action: navigate
+  navigation_path: /home-project-ledger
+```
+
+You can also use the FAB (floating action button) inside the panel to quickly add a receipt to any project.
 
 ### Dashboard Buttons
 

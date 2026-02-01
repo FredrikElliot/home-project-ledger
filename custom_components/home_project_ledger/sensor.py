@@ -5,6 +5,7 @@ import logging
 from typing import Any
 
 from homeassistant.components.sensor import (
+    SensorDeviceClass,
     SensorEntity,
     SensorStateClass,
 )
@@ -101,7 +102,9 @@ class ProjectLedgerSensorBase(CoordinatorEntity, SensorEntity):
     """Base class for Project Ledger sensors."""
 
     _attr_state_class = SensorStateClass.TOTAL
+    _attr_device_class = SensorDeviceClass.MONETARY
     _attr_icon = "mdi:currency-usd"
+    _attr_suggested_display_precision = 2
 
     def __init__(
         self,

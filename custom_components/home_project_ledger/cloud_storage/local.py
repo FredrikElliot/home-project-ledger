@@ -92,9 +92,13 @@ class LocalStorageProvider(CloudStorageProvider):
         """Get the current status of local storage."""
         status = StorageStatus(
             connected=True,
+<<<<<<< Updated upstream
             authenticated=True,
             provider_type=StorageProviderType.LOCAL,
             provider_name="Local Storage",
+=======
+            provider=StorageProviderType.LOCAL,
+>>>>>>> Stashed changes
         )
         
         try:
@@ -113,6 +117,10 @@ class LocalStorageProvider(CloudStorageProvider):
             used, count = await self.hass.async_add_executor_job(_get_stats)
             status.storage_used = used
             status.image_count = count
+<<<<<<< Updated upstream
+=======
+            status.user_name = "Local Storage"
+>>>>>>> Stashed changes
             
         except Exception as e:
             _LOGGER.error("Failed to get local storage stats: %s", e)

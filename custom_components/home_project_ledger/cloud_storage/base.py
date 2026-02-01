@@ -80,9 +80,13 @@ class StorageConfig:
 class StorageStatus:
     """Status of a storage provider."""
     connected: bool = False
+<<<<<<< Updated upstream
     authenticated: bool = False
     provider_type: StorageProviderType = StorageProviderType.LOCAL
     provider_name: str = "Local Storage"
+=======
+    provider: StorageProviderType = StorageProviderType.LOCAL
+>>>>>>> Stashed changes
     user_email: Optional[str] = None
     user_name: Optional[str] = None
     storage_used: Optional[int] = None  # bytes
@@ -94,9 +98,13 @@ class StorageStatus:
         """Convert to dictionary."""
         return {
             "connected": self.connected,
+<<<<<<< Updated upstream
             "authenticated": self.authenticated,
             "provider_type": self.provider_type.value,
             "provider_name": self.provider_name,
+=======
+            "provider": self.provider.value,
+>>>>>>> Stashed changes
             "user_email": self.user_email,
             "user_name": self.user_name,
             "storage_used": self.storage_used,
