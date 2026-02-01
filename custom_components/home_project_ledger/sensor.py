@@ -10,6 +10,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -37,7 +38,7 @@ async def async_setup_entry(
     ]
 
     # Create sensors for each area that has receipts or projects
-    area_registry = hass.helpers.area_registry.async_get(hass)
+    area_registry = ar.async_get(hass)
     area_ids = set()
     
     # Collect area IDs from projects
