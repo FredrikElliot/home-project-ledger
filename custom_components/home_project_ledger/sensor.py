@@ -234,6 +234,8 @@ class ProjectSpendSensor(ProjectLedgerSensorBase):
         if project:
             attrs["status"] = project.status
             attrs["area_id"] = project.area_id
+            attrs["budget"] = project.budget
+            attrs["budget_by_category"] = project.budget_by_category
 
         # Include receipts for this project
         receipts = self._storage.get_receipts_for_project(self._project_id)
@@ -245,7 +247,11 @@ class ProjectSpendSensor(ProjectLedgerSensorBase):
                 "total": r.total,
                 "currency": r.currency,
                 "category_summary": r.category_summary,
+                "categories": r.categories,
+                "category_split": r.category_split,
+                "category_split_type": r.category_split_type,
                 "image_path": r.image_path,
+                "image_paths": r.image_paths,
             }
             for r in receipts
         ]

@@ -796,6 +796,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
             area_id: attrs.area_id || null,
             status: attrs.status || "open",
             spend: parseFloat(sensor.state) || 0,
+            budget: attrs.budget || null,
+            budget_by_category: attrs.budget_by_category || null,
             receipts: attrs.receipts || [],
           });
         }
@@ -2344,12 +2346,30 @@ class HomeProjectLedgerPanel extends HTMLElement {
         if (!this._state.categoryBudgets) {
           this._state.categoryBudgets = [];
         }
+        // Preserve current form values before re-render
+        if (this._state.modal?.data) {
+          const budgetInput = this._container.querySelector("#project-budget");
+          const nameInput = this._container.querySelector("#project-name");
+          const areaSelect = this._container.querySelector("#project-area");
+          if (budgetInput) this._state.modal.data.budget = budgetInput.value ? parseFloat(budgetInput.value) : null;
+          if (nameInput) this._state.modal.data.name = nameInput.value;
+          if (areaSelect) this._state.modal.data.area_id = areaSelect.value || null;
+        }
         this._state.categoryBudgets.push({ category: '', amount: '' });
         this._render();
         break;
       case "remove-category-budget":
         const budgetIndex = parseInt(dataset.index, 10);
         if (!isNaN(budgetIndex) && this._state.categoryBudgets) {
+          // Preserve current form values before re-render
+          if (this._state.modal?.data) {
+            const budgetInput = this._container.querySelector("#project-budget");
+            const nameInput = this._container.querySelector("#project-name");
+            const areaSelect = this._container.querySelector("#project-area");
+            if (budgetInput) this._state.modal.data.budget = budgetInput.value ? parseFloat(budgetInput.value) : null;
+            if (nameInput) this._state.modal.data.name = nameInput.value;
+            if (areaSelect) this._state.modal.data.area_id = areaSelect.value || null;
+          }
           this._state.categoryBudgets.splice(budgetIndex, 1);
           this._render();
         }
