@@ -7,13 +7,24 @@
 const DOMAIN = "home_project_ledger";
 
 // Color palette for charts (inspired by HA Energy dashboard)
+// Distinct colors - alternating between different hues to ensure variety
 const CHART_COLORS = [
-  '#4fc3f7', '#29b6f6', '#03a9f4', '#039be5', '#0288d1', // Blues
-  '#81c784', '#66bb6a', '#4caf50', '#43a047', '#388e3c', // Greens
-  '#ffb74d', '#ffa726', '#ff9800', '#fb8c00', '#f57c00', // Oranges
-  '#f06292', '#ec407a', '#e91e63', '#d81b60', '#c2185b', // Pinks
-  '#ba68c8', '#ab47bc', '#9c27b0', '#8e24aa', '#7b1fa2', // Purples
-  '#7986cb', '#5c6bc0', '#3f51b5', '#3949ab', '#303f9f', // Indigos
+  '#03a9f4', // Blue
+  '#4caf50', // Green
+  '#ff9800', // Orange
+  '#e91e63', // Pink
+  '#9c27b0', // Purple
+  '#00bcd4', // Cyan
+  '#ff5722', // Deep Orange
+  '#8bc34a', // Light Green
+  '#673ab7', // Deep Purple
+  '#ffc107', // Amber
+  '#009688', // Teal
+  '#f44336', // Red
+  '#3f51b5', // Indigo
+  '#cddc39', // Lime
+  '#795548', // Brown
+  '#607d8b', // Blue Grey
 ];
 
 // Translations
@@ -143,6 +154,7 @@ const TRANSLATIONS = {
     createNew: "Create \"{name}\"",
     
     // Empty states
+    noProjects: "No projects in this category",
     noProjectsYet: "No projects yet",
     noProjectsDesc: "Click the \"Add Project\" button above to create your first project.",
     noProjectsMatch: "No projects match your search.",
@@ -364,6 +376,7 @@ const TRANSLATIONS = {
     createNew: "Skapa \"{name}\"",
     
     // Empty states
+    noProjects: "Inga projekt i denna kategori",
     noProjectsYet: "Inga projekt än",
     noProjectsDesc: "Klicka på \"Lägg till projekt\" ovan för att skapa ditt första projekt.",
     noProjectsMatch: "Inga projekt matchar din sökning.",
@@ -855,12 +868,11 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .donut-chart-center-value { font-size: 24px; font-weight: 500; color: var(--primary-text-color, #212121); }
         .donut-chart-center-label { font-size: 11px; color: var(--secondary-text-color, #757575); text-transform: uppercase; }
         .donut-legend { flex: 1; min-width: 150px; }
-        .donut-legend-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--divider-color, #e0e0e0); }
+        .donut-legend-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--divider-color, #e0e0e0); }
         .donut-legend-item:last-child { border-bottom: none; }
-        .donut-legend-color { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
-        .donut-legend-label { flex: 1; font-size: 13px; color: var(--primary-text-color, #212121); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .donut-legend-value { font-size: 13px; font-weight: 500; color: var(--primary-text-color, #212121); }
-        .donut-legend-percent { font-size: 12px; color: var(--secondary-text-color, #757575); margin-left: 4px; }
+        .donut-legend-color { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+        .donut-legend-label { flex: 1; font-size: 12px; color: var(--primary-text-color, #212121); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .donut-legend-percent { font-size: 12px; color: var(--secondary-text-color, #757575); flex-shrink: 0; }
         
         /* Bar Chart */
         .bar-chart { padding: 8px 0; }
@@ -875,7 +887,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         /* Timeline Chart - amCharts Container */
         .timeline-chart { height: 220px; position: relative; padding: 8px 0; }
         @media (min-width: 600px) { .timeline-chart { height: 260px; } }
-        .timeline-chart-container { width: 100%; height: 100%; }
+        .timeline-chart-container { width: 100%; height: 100%; position: relative; }
         
         /* Fallback SVG Chart Styles */
         .timeline-chart svg { width: 100%; height: 100%; }
@@ -887,7 +899,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .timeline-chart-labels { display: flex; justify-content: space-between; padding: 8px 4px 0 4px; font-size: 10px; color: var(--secondary-text-color, #757575); }
         @media (min-width: 600px) { .timeline-chart-labels { font-size: 11px; } }
         .timeline-chart-label { fill: var(--secondary-text-color, #757575); font-size: 10px; }
-        .timeline-chart-tooltip { position: absolute; background-color: var(--card-background-color, #fff); border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); padding: 10px 14px; font-size: 12px; pointer-events: none; z-index: 10; white-space: nowrap; transform: translate(-50%, -100%); margin-top: -10px; display: none; min-width: 140px; }
+        .timeline-chart-tooltip { position: fixed; background-color: var(--card-background-color, #fff); border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); padding: 10px 14px; font-size: 12px; pointer-events: none; z-index: 1000; white-space: nowrap; transform: translateY(-100%); display: none; min-width: 140px; }
         .timeline-chart-tooltip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: var(--card-background-color, #fff); }
         .timeline-chart-tooltip-value { font-size: 16px; font-weight: 600; color: var(--primary-color, #03a9f4); margin: 4px 0 8px 0; }
         .timeline-chart-tooltip-label { font-weight: 500; color: var(--primary-text-color, #212121); }
@@ -898,7 +910,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
         
         /* Budget Health Cards */
         .budget-health-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-        .budget-health-card { text-align: center; padding: 16px 12px; background-color: var(--secondary-background-color, #f5f5f5); border-radius: 8px; }
+        .budget-health-card { text-align: center; padding: 16px 12px; background-color: var(--secondary-background-color, #f5f5f5); border-radius: 8px; position: relative; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+        .budget-health-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
         .budget-health-card.on-track { background-color: rgba(76, 175, 80, 0.1); }
         .budget-health-card.at-risk { background-color: rgba(255, 152, 0, 0.1); }
         .budget-health-card.over-budget { background-color: rgba(244, 67, 54, 0.1); }
@@ -907,6 +920,19 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .budget-health-card.at-risk .budget-health-value { color: var(--warning-color, #ff9800); }
         .budget-health-card.over-budget .budget-health-value { color: var(--error-color, #f44336); }
         .budget-health-label { font-size: 11px; color: var(--secondary-text-color, #757575); margin-top: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .budget-health-tooltip { position: fixed; background-color: var(--card-background-color, #fff); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); padding: 12px; font-size: 13px; z-index: 1000; min-width: 200px; max-width: 280px; display: none; pointer-events: none; }
+        .budget-health-tooltip-title { font-weight: 600; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--divider-color, #e0e0e0); }
+        .budget-health-tooltip.on-track .budget-health-tooltip-title { color: var(--success-color, #4caf50); }
+        .budget-health-tooltip.at-risk .budget-health-tooltip-title { color: var(--warning-color, #ff9800); }
+        .budget-health-tooltip.over-budget .budget-health-tooltip-title { color: var(--error-color, #f44336); }
+        .budget-health-tooltip-empty { color: var(--secondary-text-color, #757575); font-style: italic; }
+        .budget-health-tooltip-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--divider-color, #e0e0e0); gap: 12px; }
+        .budget-health-tooltip-item:last-child { border-bottom: none; }
+        .budget-health-tooltip-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .budget-health-tooltip-percent { font-weight: 500; flex-shrink: 0; }
+        .budget-health-tooltip-percent.on-track { color: var(--success-color, #4caf50); }
+        .budget-health-tooltip-percent.at-risk { color: var(--warning-color, #ff9800); }
+        .budget-health-tooltip-percent.over-budget { color: var(--error-color, #f44336); }
         
         /* Project Budget List */
         .budget-project-list { max-height: 300px; overflow-y: auto; }
@@ -1230,6 +1256,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
       // Use requestAnimationFrame to ensure DOM is painted
       requestAnimationFrame(() => {
         this._initAmCharts();
+        this._initBudgetHealthTooltips();
       });
     }
   }
@@ -1286,11 +1313,11 @@ class HomeProjectLedgerPanel extends HTMLElement {
     const projectData = this._getProjectData(filteredReceipts);
     const timelineData = this._getTimelineData(filteredReceipts);
     
-    // Budget health
+    // Budget health - collect project lists for each category
     const projectsWithBudget = this._state.projects.filter(p => p.budget && p.budget > 0);
-    const onTrack = projectsWithBudget.filter(p => (p.spend / p.budget) < 0.75).length;
-    const atRisk = projectsWithBudget.filter(p => (p.spend / p.budget) >= 0.75 && (p.spend / p.budget) < 1).length;
-    const overBudget = projectsWithBudget.filter(p => (p.spend / p.budget) >= 1).length;
+    const onTrackProjects = projectsWithBudget.filter(p => (p.spend / p.budget) < 0.75);
+    const atRiskProjects = projectsWithBudget.filter(p => (p.spend / p.budget) >= 0.75 && (p.spend / p.budget) < 1);
+    const overBudgetProjects = projectsWithBudget.filter(p => (p.spend / p.budget) >= 1);
     
     return '<div class="page-header">' +
         '<h1>' + this._t('dashboard') + '</h1>' +
@@ -1300,7 +1327,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         // Summary stats card
         this._renderSummaryCard(totalSpend, filteredReceipts.length, avgPerReceipt, this._state.projects.length) +
         // Budget health card
-        this._renderBudgetHealthCard(projectsWithBudget.length, onTrack, atRisk, overBudget) +
+        this._renderBudgetHealthCard(projectsWithBudget.length, onTrackProjects, atRiskProjects, overBudgetProjects) +
         // Spending timeline
         this._renderTimelineCard(timelineData) +
         // Category breakdown
@@ -1471,6 +1498,21 @@ class HomeProjectLedgerPanel extends HTMLElement {
     const now = new Date();
     const period = this._state.dashboardPeriod || 'allTime';
     
+    // Helper to format date as YYYY-MM-DD in local timezone (not UTC)
+    const formatDateKey = (d) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    // Helper to format date as YYYY-MM in local timezone
+    const formatMonthKey = (d) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      return `${year}-${month}`;
+    };
+    
     // Helper to add receipts to map with project breakdown
     const addReceipts = (keyFn) => {
       receipts.forEach(r => {
@@ -1505,7 +1547,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
         for (let i = 1; i <= daysInMonth; i++) {
           const d = new Date(now.getFullYear(), now.getMonth(), i);
-          const key = d.toISOString().substring(0, 10); // YYYY-MM-DD
+          const key = formatDateKey(d);
           map.set(key, createEntry(key, d, i.toString()));
         }
         addReceipts(date => date.substring(0, 10));
@@ -1517,7 +1559,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         const lastMonthDays = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
         for (let i = 1; i <= lastMonthDays; i++) {
           const d = new Date(now.getFullYear(), now.getMonth() - 1, i);
-          const key = d.toISOString().substring(0, 10);
+          const key = formatDateKey(d);
           map.set(key, createEntry(key, d, i.toString()));
         }
         addReceipts(date => date.substring(0, 10));
@@ -1528,7 +1570,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         // Show last 3 months (starting from current month going back)
         for (let i = 2; i >= 0; i--) {
           const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-          const key = d.toISOString().substring(0, 7); // YYYY-MM
+          const key = formatMonthKey(d);
           map.set(key, createEntry(key, d, this._formatMonth(d)));
         }
         addReceipts(date => date.substring(0, 7));
@@ -1539,7 +1581,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         // Show all months from January to current month of current year
         for (let m = 0; m <= now.getMonth(); m++) {
           const d = new Date(now.getFullYear(), m, 1);
-          const key = d.toISOString().substring(0, 7); // YYYY-MM
+          const key = formatMonthKey(d);
           map.set(key, createEntry(key, d, this._formatMonth(d)));
         }
         addReceipts(date => date.substring(0, 7));
@@ -1560,7 +1602,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
           for (let i = 0; i < daysDiff; i++) {
             const d = new Date(startDate);
             d.setDate(d.getDate() + i);
-            const key = d.toISOString().substring(0, 10);
+            const key = formatDateKey(d);
             map.set(key, createEntry(key, new Date(d), d.getDate().toString()));
           }
           addReceipts(date => date.substring(0, 10));
@@ -1568,7 +1610,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
           // Show monthly for longer ranges
           let current = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
           while (current <= endDate) {
-            const key = current.toISOString().substring(0, 7);
+            const key = formatMonthKey(current);
             map.set(key, createEntry(key, new Date(current), this._formatMonth(current)));
             current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
           }
@@ -1582,7 +1624,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         // Show last 12 months
         for (let i = 11; i >= 0; i--) {
           const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-          const key = d.toISOString().substring(0, 7); // YYYY-MM
+          const key = formatMonthKey(d);
           map.set(key, createEntry(key, d, this._formatMonth(d)));
         }
         addReceipts(date => date.substring(0, 7));
@@ -1622,7 +1664,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
     '</div>';
   }
   
-  _renderBudgetHealthCard(total, onTrack, atRisk, overBudget) {
+  _renderBudgetHealthCard(total, onTrackProjects, atRiskProjects, overBudgetProjects) {
     if (total === 0) {
       return '<div class="dashboard-card">' +
         '<div class="dashboard-card-header"><h3>' + this._t('budgetHealth') + '</h3></div>' +
@@ -1632,25 +1674,99 @@ class HomeProjectLedgerPanel extends HTMLElement {
       '</div>';
     }
     
+    // Store project data for tooltips
+    this._budgetHealthData = {
+      onTrack: onTrackProjects,
+      atRisk: atRiskProjects,
+      overBudget: overBudgetProjects
+    };
+    
     return '<div class="dashboard-card">' +
       '<div class="dashboard-card-header"><h3>' + this._t('budgetHealth') + '</h3></div>' +
       '<div class="dashboard-card-body">' +
         '<div class="budget-health-grid">' +
-          '<div class="budget-health-card on-track">' +
-            '<div class="budget-health-value">' + onTrack + '</div>' +
+          '<div class="budget-health-card on-track" data-health-type="onTrack">' +
+            '<div class="budget-health-value">' + onTrackProjects.length + '</div>' +
             '<div class="budget-health-label">' + this._t('onTrack') + '</div>' +
           '</div>' +
-          '<div class="budget-health-card at-risk">' +
-            '<div class="budget-health-value">' + atRisk + '</div>' +
+          '<div class="budget-health-card at-risk" data-health-type="atRisk">' +
+            '<div class="budget-health-value">' + atRiskProjects.length + '</div>' +
             '<div class="budget-health-label">' + this._t('atRisk') + '</div>' +
           '</div>' +
-          '<div class="budget-health-card over-budget">' +
-            '<div class="budget-health-value">' + overBudget + '</div>' +
+          '<div class="budget-health-card over-budget" data-health-type="overBudget">' +
+            '<div class="budget-health-value">' + overBudgetProjects.length + '</div>' +
             '<div class="budget-health-label">' + this._t('overBudgetCount') + '</div>' +
           '</div>' +
         '</div>' +
       '</div>' +
     '</div>';
+  }
+  
+  _initBudgetHealthTooltips() {
+    const cards = this.querySelectorAll('.budget-health-card[data-health-type]');
+    if (!cards.length || !this._budgetHealthData) return;
+    
+    let tooltip = this.querySelector('.budget-health-tooltip');
+    if (!tooltip) {
+      tooltip = document.createElement('div');
+      tooltip.className = 'budget-health-tooltip';
+      this.appendChild(tooltip);
+    }
+    
+    const self = this;
+    const titles = {
+      onTrack: this._t('onTrack'),
+      atRisk: this._t('atRisk'),
+      overBudget: this._t('overBudgetCount')
+    };
+    
+    cards.forEach(card => {
+      card.addEventListener('mouseenter', (e) => {
+        const type = card.getAttribute('data-health-type');
+        const projects = self._budgetHealthData[type] || [];
+        const cssClass = type === 'onTrack' ? 'on-track' : (type === 'atRisk' ? 'at-risk' : 'over-budget');
+        
+        tooltip.className = 'budget-health-tooltip ' + cssClass;
+        
+        let content = '<div class="budget-health-tooltip-title">' + titles[type] + ' (' + projects.length + ')</div>';
+        
+        if (projects.length === 0) {
+          content += '<div class="budget-health-tooltip-empty">' + self._t('noProjects') + '</div>';
+        } else {
+          projects.forEach(p => {
+            const percent = p.budget > 0 ? Math.round((p.spend / p.budget) * 100) : 0;
+            const percentClass = type === 'onTrack' ? 'on-track' : (type === 'atRisk' ? 'at-risk' : 'over-budget');
+            content += '<div class="budget-health-tooltip-item">' +
+              '<span class="budget-health-tooltip-name">' + self._escapeHtml(p.name) + '</span>' +
+              '<span class="budget-health-tooltip-percent ' + percentClass + '">' + percent + '%</span>' +
+            '</div>';
+          });
+        }
+        
+        tooltip.innerHTML = content;
+        
+        const rect = card.getBoundingClientRect();
+        const tooltipWidth = 240;
+        
+        // Position below the card
+        let left = rect.left + rect.width / 2 - tooltipWidth / 2;
+        let top = rect.bottom + 8;
+        
+        // Keep within viewport
+        if (left < 10) left = 10;
+        if (left + tooltipWidth > window.innerWidth - 10) {
+          left = window.innerWidth - tooltipWidth - 10;
+        }
+        
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = top + 'px';
+        tooltip.style.display = 'block';
+      });
+      
+      card.addEventListener('mouseleave', () => {
+        tooltip.style.display = 'none';
+      });
+    });
   }
   
   _renderTimelineCard(data) {
@@ -1779,36 +1895,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         pointerOrientation: "vertical",
         getFillFromSprite: false,
         getStrokeFromSprite: false,
-      });
-      
-      // Custom tooltip content with project breakdown
-      tooltip.label.adapters.add("html", (html, target) => {
-        const dataItem = target.dataItem;
-        if (!dataItem) return "";
-        
-        const data = dataItem.dataContext;
-        const total = self._formatCurrency(data.value);
-        const projects = data.projects || {};
-        const projectNames = Object.keys(projects).sort((a, b) => projects[b] - projects[a]);
-        
-        let content = '<div style="font-size:13px;font-weight:500;margin-bottom:6px;color:' + textColor + '">' + data.category + '</div>';
-        content += '<div style="font-size:14px;font-weight:600;color:' + primaryColor + ';margin-bottom:8px">' + total + '</div>';
-        
-        if (projectNames.length > 0) {
-          content += '<div style="border-top:1px solid ' + gridColor + ';padding-top:6px;margin-top:2px">';
-          projectNames.forEach(name => {
-            const amount = self._formatCurrency(projects[name]);
-            content += '<div style="display:flex;justify-content:space-between;gap:16px;font-size:12px;padding:2px 0">' +
-              '<span style="color:' + secondaryTextColor + '">' + self._escapeHtml(name) + '</span>' +
-              '<span style="color:' + textColor + ';font-weight:500">' + amount + '</span>' +
-            '</div>';
-          });
-          content += '</div>';
-        } else {
-          content += '<div style="font-size:11px;color:' + secondaryTextColor + '">' + self._t('noDataYet') + '</div>';
-        }
-        
-        return content;
+        labelText: "",
       });
       
       tooltip.get("background").setAll({
@@ -1821,6 +1908,30 @@ class HomeProjectLedgerPanel extends HTMLElement {
         shadowOffsetX: 0,
         shadowOffsetY: 2,
         shadowOpacity: 0.15,
+      });
+      
+      // Custom tooltip text adapter with project breakdown
+      tooltip.label.adapters.add("text", (text, target) => {
+        const dataItem = target.dataItem;
+        if (!dataItem) return "";
+        
+        const data = dataItem.dataContext;
+        const total = self._formatCurrency(data.value);
+        const projects = data.projects || {};
+        const projectNames = Object.keys(projects).sort((a, b) => projects[b] - projects[a]);
+        
+        let content = "[bold]" + data.category + "[/]\n";
+        content += "[bold fontSize:14px]" + total + "[/]";
+        
+        if (projectNames.length > 0) {
+          content += "\n────────";
+          projectNames.forEach(name => {
+            const amount = self._formatCurrency(projects[name]);
+            content += "\n" + self._escapeHtml(name) + ": [bold]" + amount + "[/]";
+          });
+        }
+        
+        return content;
       });
       
       // Create series with smooth line
@@ -1990,7 +2101,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
         if (!tooltip) {
           tooltip = document.createElement('div');
           tooltip.className = 'timeline-chart-tooltip';
-          container.appendChild(tooltip);
+          // Append to this component root for fixed positioning to work
+          self.appendChild(tooltip);
         }
         
         // Build tooltip content with project breakdown
@@ -2011,14 +2123,12 @@ class HomeProjectLedgerPanel extends HTMLElement {
         
         tooltip.innerHTML = content;
         
-        const svgRect = container.querySelector('svg').getBoundingClientRect();
-        const cx = parseFloat(dot.getAttribute('cx'));
-        const cy = parseFloat(dot.getAttribute('cy'));
-        const scaleX = svgRect.width / 400;
-        const scaleY = svgRect.height / 200;
+        // Use getBoundingClientRect for accurate fixed positioning
+        const dotRect = dot.getBoundingClientRect();
+        const tooltipWidth = tooltip.offsetWidth || 160;
         
-        tooltip.style.left = (cx * scaleX) + 'px';
-        tooltip.style.top = (cy * scaleY - 10) + 'px';
+        tooltip.style.left = (dotRect.left + dotRect.width / 2 - tooltipWidth / 2) + 'px';
+        tooltip.style.top = (dotRect.top - 10) + 'px';
         tooltip.style.display = 'block';
       });
       
@@ -2064,8 +2174,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
       legendHtml += '<div class="donut-legend-item">' +
         '<div class="donut-legend-color" style="background-color: ' + color + ';"></div>' +
         '<div class="donut-legend-label">' + this._escapeHtml(d.name) + '</div>' +
-        '<div class="donut-legend-value">' + this._formatCurrency(d.value) + '</div>' +
-        '<div class="donut-legend-percent">(' + percentage.toFixed(0) + '%)</div>' +
+        '<div class="donut-legend-percent">' + percentage.toFixed(0) + '%</div>' +
       '</div>';
     });
     
@@ -4402,4 +4511,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
   }
 }
 
-customElements.define("home_project_ledger-panel", HomeProjectLedgerPanel);
+// Guard against duplicate registration (happens during hot reload or re-navigation)
+if (!customElements.get("home_project_ledger-panel")) {
+  customElements.define("home_project_ledger-panel", HomeProjectLedgerPanel);
+}
