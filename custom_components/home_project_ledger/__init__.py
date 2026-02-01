@@ -107,7 +107,10 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
     if hass.data[DOMAIN].get("panel_registered"):
         return
 
-    module_url = f"/local/{DOMAIN}/panel.js"
+    # Add cache-busting timestamp to force browser to reload JS file
+    import time
+    cache_bust = int(time.time())
+    module_url = f"/local/{DOMAIN}/panel.js?v={cache_bust}"
 
     # NOTE: In your HA version, async_register_panel is a coroutine and MUST be awaited.
     await panel_custom.async_register_panel(

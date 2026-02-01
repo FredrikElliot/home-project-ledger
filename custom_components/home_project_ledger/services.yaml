@@ -29,6 +29,30 @@ close_project:
       selector:
         text:
 
+reopen_project:
+  name: Reopen project
+  description: Reopen a previously closed project
+  fields:
+    project_id:
+      name: Project ID
+      description: ID of the project to reopen
+      required: true
+      example: "abc123-def456-ghi789"
+      selector:
+        text:
+
+delete_project:
+  name: Delete project
+  description: Permanently delete a project and all its receipts
+  fields:
+    project_id:
+      name: Project ID
+      description: ID of the project to delete
+      required: true
+      example: "abc123-def456-ghi789"
+      selector:
+        text:
+
 add_receipt:
   name: Add receipt
   description: Add a receipt to a project

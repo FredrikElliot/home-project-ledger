@@ -21,9 +21,12 @@ from .const import (
     SERVICE_ADD_RECEIPT,
     SERVICE_CLOSE_PROJECT,
     SERVICE_CREATE_PROJECT,
+    SERVICE_DELETE_PROJECT,
     SERVICE_DELETE_RECEIPT,
+    SERVICE_REOPEN_PROJECT,
     SERVICE_UPDATE_RECEIPT,
     STATUS_CLOSED,
+    STATUS_OPEN,
 )
 from .coordinator import ProjectLedgerCoordinator
 from .models import Project, Receipt
@@ -43,6 +46,18 @@ SERVICE_CREATE_PROJECT_SCHEMA = vol.Schema(
 )
 
 SERVICE_CLOSE_PROJECT_SCHEMA = vol.Schema(
+    {
+        vol.Required("project_id"): cv.string,
+    }
+)
+
+SERVICE_REOPEN_PROJECT_SCHEMA = vol.Schema(
+    {
+        vol.Required("project_id"): cv.string,
+    }
+)
+
+SERVICE_DELETE_PROJECT_SCHEMA = vol.Schema(
     {
         vol.Required("project_id"): cv.string,
     }
@@ -116,6 +131,59 @@ async def async_setup_services(
         await coordinator.async_refresh_data()
 
         _LOGGER.info("Closed project: %s", project_id)
+
+    async def handle_reopen_project(call: ServiceCall) -> None:
+        """Handle reopen_project service call."""
+        project_id = call.data["project_id"]
+
+        _LOGGER.debug("Reopening project: %s", project_id)
+
+        project = storage.get_project(project_id)
+        if not project:
+            raise ServiceValidationError(f"Project not found: {project_id}")
+
+        project.status = STATUS_OPEN
+        project.closed_at = None
+        await storage.async_update_project(project)
+        await coordinator.async_refresh_data()
+
+        _LOGGER.info("Reopened project: %s", project_id)
+
+    async def handle_delete_project(call: ServiceCall) -> None:
+        """Handle delete_project service call."""
+        project_id = call.data["project_id"]
+
+        _LOGGER.debug("Deleting project: %s", project_id)
+
+        project = storage.get_project(project_id)
+        if not project:
+            raise ServiceValidationError(f"Project not found: {project_id}")
+
+        # Delete all receipts for this project first
+        receipts = storage.get_receipts_for_project(project_id)
+        for receipt in receipts:
+            # Delete image file if exists
+            if receipt.image_path:
+                try:
+                    filename = os.path.basename(receipt.image_path)
+                    receipt_dir = hass.config.path(RECEIPT_IMAGE_DIR)
+                    full_path = os.path.join(receipt_dir, filename)
+
+                    def delete_image(path=full_path):
+                        if os.path.exists(path):
+                            os.remove(path)
+
+                    await hass.async_add_executor_job(delete_image)
+                except OSError as err:
+                    _LOGGER.error("Failed to delete receipt image: %s", err)
+
+            await storage.async_delete_receipt(receipt.receipt_id)
+
+        # Delete the project
+        await storage.async_delete_project(project_id)
+        await coordinator.async_refresh_data()
+
+        _LOGGER.info("Deleted project: %s (and %d receipts)", project_id, len(receipts))
 
     async def handle_add_receipt(call: ServiceCall) -> None:
         """Handle add_receipt service call."""
@@ -263,6 +331,20 @@ async def async_setup_services(
         SERVICE_CLOSE_PROJECT,
         handle_close_project,
         schema=SERVICE_CLOSE_PROJECT_SCHEMA,
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_REOPEN_PROJECT,
+        handle_reopen_project,
+        schema=SERVICE_REOPEN_PROJECT_SCHEMA,
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_DELETE_PROJECT,
+        handle_delete_project,
+        schema=SERVICE_DELETE_PROJECT_SCHEMA,
     )
 
     hass.services.async_register(

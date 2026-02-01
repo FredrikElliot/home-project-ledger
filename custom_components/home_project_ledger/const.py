@@ -19,6 +19,8 @@ STATUS_CLOSED: Final = "closed"
 # Services
 SERVICE_CREATE_PROJECT: Final = "create_project"
 SERVICE_CLOSE_PROJECT: Final = "close_project"
+SERVICE_REOPEN_PROJECT: Final = "reopen_project"
+SERVICE_DELETE_PROJECT: Final = "delete_project"
 SERVICE_ADD_RECEIPT: Final = "add_receipt"
 SERVICE_UPDATE_RECEIPT: Final = "update_receipt"
 SERVICE_DELETE_RECEIPT: Final = "delete_receipt"
