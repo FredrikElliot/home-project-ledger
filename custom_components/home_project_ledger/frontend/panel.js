@@ -953,7 +953,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .receipt-detail-categories { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
         .receipt-detail-category { display: inline-flex; align-items: center; gap: 4px; background: var(--primary-color, #03a9f4); color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
         .receipt-detail-category-amount { opacity: 0.85; font-size: 11px; }
-        .receipt-detail-actions { display: flex; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--divider-color, #e0e0e0); }
         .receipt-detail-photos { display: flex; gap: 8px; margin-top: 12px; overflow-x: auto; padding-bottom: 4px; }
         .receipt-detail-photo-thumb { width: 60px; height: 60px; border-radius: 6px; overflow: hidden; cursor: pointer; flex-shrink: 0; border: 2px solid transparent; transition: border-color 0.2s; }
         .receipt-detail-photo-thumb:hover { border-color: var(--primary-color, #03a9f4); }
@@ -2167,26 +2166,30 @@ class HomeProjectLedgerPanel extends HTMLElement {
     return '';
   }
 
-  _renderReceiptDetailView(receipt, projectId) {
+  _renderReceiptDetailView(receipt, projectId, projectName) {
     const imagePaths = receipt.image_paths || [];
     const selectedPhotoIndex = this._state.detailPhotoIndex || 0;
-    const editIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/></svg>';
-    const deleteIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/></svg>';
     const calendarIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19,19H5V8H19M16,1V3H8V1H6V3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3H18V1"/></svg>';
-    const storeIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M18.36,9L18.96,12H5.04L5.64,9H18.36M20,4H4V6H20V4M20,7H4L3,12V14H4V20H14V14H18V20H20V14H21V12L20,7M6,18V14H12V18H6Z"/></svg>';
     const tagIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M5.5,7A1.5,1.5 0 0,1 4,5.5A1.5,1.5 0 0,1 5.5,4A1.5,1.5 0 0,1 7,5.5A1.5,1.5 0 0,1 5.5,7M21.41,11.58L12.41,2.58C12.05,2.22 11.55,2 11,2H4C2.89,2 2,2.89 2,4V11C2,11.55 2.22,12.05 2.59,12.41L11.58,21.41C11.95,21.77 12.45,22 13,22C13.55,22 14.05,21.77 14.41,21.41L21.41,14.41C21.78,14.05 22,13.55 22,13C22,12.44 21.77,11.94 21.41,11.58Z"/></svg>';
     const folderIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z"/></svg>';
-    const imageIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M8.5,13.5L11,16.5L14.5,12L19,18H5M21,19V5C21,3.89 20.1,3 19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19Z"/></svg>';
 
-    // Main image or placeholder
-    let mainImageHtml = '';
+    // Resolve project name: use passed name, or receipt's project_name, or look it up
+    let displayProjectName = projectName || receipt.project_name;
+    if (!displayProjectName && projectId) {
+      const project = this._state.projects.find(p => p.project_id === projectId);
+      displayProjectName = project ? project.name : null;
+    }
+
+    // Main image section - only show if there are photos
+    let imageHtml = '';
     if (imagePaths.length > 0) {
       const currentImage = imagePaths[selectedPhotoIndex] || imagePaths[0];
-      mainImageHtml = '<img src="' + currentImage + '" alt="Receipt" data-action="view-receipt-photo" data-receipt-id="' + receipt.receipt_id + '" data-photo-index="' + selectedPhotoIndex + '">';
+      imageHtml = '<div class="receipt-detail-image">' +
+        '<img src="' + currentImage + '" alt="Receipt" data-action="view-receipt-photo" data-receipt-id="' + receipt.receipt_id + '" data-photo-index="' + selectedPhotoIndex + '">';
       
       // Photo thumbnails for navigation if multiple photos
       if (imagePaths.length > 1) {
-        mainImageHtml += '<div class="receipt-detail-photos">' +
+        imageHtml += '<div class="receipt-detail-photos">' +
           imagePaths.map((path, i) => 
             '<div class="receipt-detail-photo-thumb' + (i === selectedPhotoIndex ? ' active' : '') + '" data-action="select-detail-photo" data-photo-index="' + i + '" data-receipt-id="' + receipt.receipt_id + '">' +
               '<img src="' + path + '" alt="Photo ' + (i + 1) + '">' +
@@ -2194,8 +2197,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
           ).join('') +
         '</div>';
       }
-    } else {
-      mainImageHtml = '<div class="receipt-detail-image-placeholder">' + imageIcon + '<span>' + this._t('noPhotos') + '</span></div>';
+      imageHtml += '</div>';
     }
 
     // Categories with split amounts
@@ -2226,7 +2228,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
 
     return '<div class="receipt-detail">' +
       '<div class="receipt-detail-layout">' +
-        '<div class="receipt-detail-image">' + mainImageHtml + '</div>' +
+        imageHtml +
         '<div class="receipt-detail-info">' +
           '<div class="receipt-detail-header">' +
             '<h3 class="receipt-detail-merchant">' + this._escapeHtml(receipt.merchant || this._t('unknown')) + '</h3>' +
@@ -2234,12 +2236,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
           '</div>' +
           '<div class="receipt-detail-meta">' +
             '<div class="receipt-detail-row">' + calendarIcon + '<span class="receipt-detail-value">' + (receipt.date || this._t('noDate')) + '</span></div>' +
-            '<div class="receipt-detail-row">' + folderIcon + '<span class="receipt-detail-value">' + this._escapeHtml(receipt.project_name || this._t('noProject')) + '</span></div>' +
+            (displayProjectName ? '<div class="receipt-detail-row">' + folderIcon + '<span class="receipt-detail-value">' + this._escapeHtml(displayProjectName) + '</span></div>' : '') +
             (cats.length > 0 ? '<div class="receipt-detail-row">' + tagIcon + categoriesHtml + '</div>' : '') +
-          '</div>' +
-          '<div class="receipt-detail-actions">' +
-            '<button class="btn btn-secondary" data-action="edit-receipt" data-receipt-id="' + receipt.receipt_id + '" data-project-id="' + projectId + '">' + editIcon + ' ' + this._t('edit') + '</button>' +
-            '<button class="btn btn-danger" data-action="delete-receipt" data-receipt-id="' + receipt.receipt_id + '" data-merchant="' + this._escapeHtml(receipt.merchant || this._t('thisReceipt')) + '">' + deleteIcon + ' ' + this._t('delete') + '</button>' +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -2600,6 +2598,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
           this._state.activeTab = tab;
           this._state.searchQuery = "";
           this._state.expandedProjectId = null;
+          this._state.expandedReceiptId = null;
+          this._state.detailPhotoIndex = 0;
           this._state.openMenuId = null;
           // Load storage status when switching to settings tab
           if (tab === 'settings') {
