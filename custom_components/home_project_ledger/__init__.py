@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.components import panel_custom
 
-from .const import DOMAIN, RECEIPT_IMAGE_DIR
+from .const import DOMAIN, RECEIPT_IMAGE_DIR, PANEL_ICON, PANEL_TITLE, PANEL_URL
 from .coordinator import ProjectLedgerCoordinator
 from .services import async_setup_services
 from .storage import ProjectLedgerStorage
@@ -22,26 +24,42 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Home Project Ledger from a config entry."""
     _LOGGER.debug("Setting up Home Project Ledger integration")
 
-    # Ensure directories exist using executor to avoid blocking
-    def setup_directories():
+    def setup_directories_and_assets() -> dict[str, str | None]:
+        """Create required dirs and copy frontend assets to /config/www/<DOMAIN>/."""
+        # Receipt images directory
         receipt_dir = hass.config.path(RECEIPT_IMAGE_DIR)
         os.makedirs(receipt_dir, exist_ok=True)
-        
-        frontend_dir = hass.config.path(f"www/{DOMAIN}")
-        os.makedirs(frontend_dir, exist_ok=True)
-        
-        # Copy panel.html from the integration directory
-        import shutil
-        panel_source = os.path.join(os.path.dirname(__file__), "frontend", "panel.html")
-        panel_dest = os.path.join(frontend_dir, "panel.html")
-        if os.path.exists(panel_source):
-            shutil.copy(panel_source, panel_dest)
-            return panel_dest
-        return None
-    
-    panel_path = await hass.async_add_executor_job(setup_directories)
-    if panel_path:
-        _LOGGER.debug("Copied panel to: %s", panel_path)
+
+        # Public frontend directory served as /local/<DOMAIN>/...
+        www_domain_dir = hass.config.path(f"www/{DOMAIN}")
+        os.makedirs(www_domain_dir, exist_ok=True)
+
+        base_frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
+
+        panel_js_src = os.path.join(base_frontend_dir, "panel.js")
+        panel_js_dst = os.path.join(www_domain_dir, "panel.js")
+
+        panel_html_src = os.path.join(base_frontend_dir, "panel.html")
+        panel_html_dst = os.path.join(www_domain_dir, "panel.html")
+
+        copied_js = None
+        copied_html = None
+
+        if os.path.exists(panel_js_src):
+            shutil.copy(panel_js_src, panel_js_dst)
+            copied_js = panel_js_dst
+
+        if os.path.exists(panel_html_src):
+            shutil.copy(panel_html_src, panel_html_dst)
+            copied_html = panel_html_dst
+
+        return {"panel_js": copied_js, "panel_html": copied_html}
+
+    copied = await hass.async_add_executor_job(setup_directories_and_assets)
+    _LOGGER.debug("Frontend assets copied: %s", copied)
+
+    # Register sidebar panel early (and only once)
+    await _async_register_panel(hass)
 
     # Initialize storage
     storage = ProjectLedgerStorage(hass)
@@ -64,9 +82,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Set up services
     await async_setup_services(hass, storage, coordinator)
 
-    # Register custom panel
-    await _async_register_panel(hass)
-
     return True
 
 
@@ -74,29 +89,37 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     _LOGGER.debug("Unloading Home Project Ledger integration")
 
-    # Unload platforms
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id)
+        hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
+
+    # MVP: We keep panel registered even if entry is removed.
+    # If you later want to remove it:
+    # await panel_custom.async_remove_panel(hass, PANEL_URL)
 
     return unload_ok
 
 
 async def _async_register_panel(hass: HomeAssistant) -> None:
-    """Register the custom panel."""
-    from .const import PANEL_ICON, PANEL_TITLE, PANEL_URL
-    
-    # Register the panel using iframe
-    await hass.components.frontend.async_register_built_in_panel(
-        component_name="iframe",
+    """Register the Home Project Ledger sidebar panel (custom)."""
+    hass.data.setdefault(DOMAIN, {})
+    if hass.data[DOMAIN].get("panel_registered"):
+        return
+
+    module_url = f"/local/{DOMAIN}/panel.js"
+
+    # NOTE: In your HA version, async_register_panel is a coroutine and MUST be awaited.
+    await panel_custom.async_register_panel(
+        hass,
+        webcomponent_name=f"{DOMAIN}-panel",
+        frontend_url_path=PANEL_URL,
+        module_url=module_url,
         sidebar_title=PANEL_TITLE,
         sidebar_icon=PANEL_ICON,
-        frontend_url_path=PANEL_URL,
-        config={
-            "url": f"/local/{DOMAIN}/panel.html"
-        },
         require_admin=False,
+        config={},
     )
 
-    _LOGGER.info("Registered Home Project Ledger panel at /%s", PANEL_URL)
+    hass.data[DOMAIN]["panel_registered"] = True
+    _LOGGER.info("Registered Home Project Ledger panel at /%s (module: %s)", PANEL_URL, module_url)
