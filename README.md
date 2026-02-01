@@ -85,6 +85,27 @@ The integration automatically creates sensors for:
 
 These sensors can be used in automations, dashboards, and the Energy panel.
 
+### Dashboard Buttons
+
+The integration provides button entities for quick access:
+
+- **Add Receipt** (`button.add_receipt`) - Press to trigger a receipt add event
+- **Open Project Ledger** (`button.open_project_ledger`) - Press to trigger a panel open event
+
+**Adding a Quick Add Receipt button to your dashboard:**
+
+```yaml
+type: button
+entity: button.add_receipt
+name: Add Receipt
+icon: mdi:receipt-text-plus
+tap_action:
+  action: navigate
+  navigation_path: /home-project-ledger
+```
+
+You can also use the FAB (floating action button) inside the panel to quickly add a receipt to any project.
+
 ## Data Storage
 
 - **Project and receipt metadata**: Stored in `.storage/home_project_ledger.*.json`

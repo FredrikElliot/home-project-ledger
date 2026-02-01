@@ -41,19 +41,14 @@ async def async_setup_entry(
         TotalHouseSpendSensor(coordinator, storage, currency),
     ]
 
-    # Create sensors for each area that has receipts or projects
+    # Create sensors for each area that has projects
     area_registry = ar.async_get(hass)
     area_ids = set()
     
-    # Collect area IDs from projects
+    # Collect area IDs from projects (receipts inherit area from their project)
     for project in storage.get_all_projects():
         if project.area_id:
             area_ids.add(project.area_id)
-    
-    # Collect area IDs from receipts
-    for receipt in storage.get_all_receipts():
-        if receipt.area_id:
-            area_ids.add(receipt.area_id)
     
     # Create area sensors
     for area_id in area_ids:
@@ -84,7 +79,7 @@ async def async_setup_entry(
                 created_project_ids.add(project.project_id)
                 _LOGGER.debug("Adding sensor for new project: %s", project.name)
 
-        # Check for new areas
+        # Check for new areas (from projects only - receipts inherit area from project)
         for project in storage.get_all_projects():
             if project.area_id and project.area_id not in created_area_ids:
                 area = area_registry.async_get_area(project.area_id)
@@ -93,16 +88,6 @@ async def async_setup_entry(
                         AreaSpendSensor(coordinator, storage, area.id, area.name, currency)
                     )
                     created_area_ids.add(project.area_id)
-                    _LOGGER.debug("Adding sensor for new area: %s", area.name)
-
-        for receipt in storage.get_all_receipts():
-            if receipt.area_id and receipt.area_id not in created_area_ids:
-                area = area_registry.async_get_area(receipt.area_id)
-                if area:
-                    new_sensors.append(
-                        AreaSpendSensor(coordinator, storage, area.id, area.name, currency)
-                    )
-                    created_area_ids.add(receipt.area_id)
                     _LOGGER.debug("Adding sensor for new area: %s", area.name)
 
         if new_sensors:
@@ -151,7 +136,7 @@ class TotalHouseSpendSensor(ProjectLedgerSensorBase):
         super().__init__(coordinator, storage, currency)
         self._attr_unique_id = f"{DOMAIN}_total_house_spend"
         self._attr_name = "Total House Spend"
-        self._attr_icon = "mdi:home-currency-usd"
+        self._attr_icon = "mdi:home-analytics"
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -187,6 +172,7 @@ class AreaSpendSensor(ProjectLedgerSensorBase):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
+        # Get receipts for projects in this area (receipts inherit area from project)
         total = sum(
             receipt.total
             for receipt in self._storage.get_receipts_for_area(self._area_id)
@@ -245,5 +231,20 @@ class ProjectSpendSensor(ProjectLedgerSensorBase):
         if project:
             attrs["status"] = project.status
             attrs["area_id"] = project.area_id
+
+        # Include receipts for this project
+        receipts = self._storage.get_receipts_for_project(self._project_id)
+        attrs["receipts"] = [
+            {
+                "receipt_id": r.receipt_id,
+                "merchant": r.merchant,
+                "date": r.date,
+                "total": r.total,
+                "currency": r.currency,
+                "category_summary": r.category_summary,
+                "image_path": r.image_path,
+            }
+            for r in receipts
+        ]
 
         return attrs

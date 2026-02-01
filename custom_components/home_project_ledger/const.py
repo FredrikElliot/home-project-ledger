@@ -18,6 +18,7 @@ STATUS_CLOSED: Final = "closed"
 
 # Services
 SERVICE_CREATE_PROJECT: Final = "create_project"
+SERVICE_UPDATE_PROJECT: Final = "update_project"
 SERVICE_CLOSE_PROJECT: Final = "close_project"
 SERVICE_REOPEN_PROJECT: Final = "reopen_project"
 SERVICE_DELETE_PROJECT: Final = "delete_project"
@@ -30,5 +31,5 @@ DEFAULT_CURRENCY: Final = "SEK"
 
 # Panel
 PANEL_URL: Final = "home-project-ledger"
-PANEL_TITLE: Final = "Home Project Ledger"
+PANEL_TITLE: Final = "Project Ledger"
 PANEL_ICON: Final = "mdi:notebook-edit"

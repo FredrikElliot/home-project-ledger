@@ -64,13 +64,6 @@ add_receipt:
       example: "abc123-def456-ghi789"
       selector:
         text:
-    area_id:
-      name: Area ID
-      description: Home Assistant area ID (optional)
-      required: false
-      example: "kitchen"
-      selector:
-        area:
     merchant:
       name: Merchant
       description: Name of the merchant

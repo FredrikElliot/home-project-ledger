@@ -24,6 +24,7 @@ from .const import (
     SERVICE_DELETE_PROJECT,
     SERVICE_DELETE_RECEIPT,
     SERVICE_REOPEN_PROJECT,
+    SERVICE_UPDATE_PROJECT,
     SERVICE_UPDATE_RECEIPT,
     STATUS_CLOSED,
     STATUS_OPEN,
@@ -42,6 +43,14 @@ SERVICE_CREATE_PROJECT_SCHEMA = vol.Schema(
     {
         vol.Required("name"): cv.string,
         vol.Optional("area_id"): cv.string,
+    }
+)
+
+SERVICE_UPDATE_PROJECT_SCHEMA = vol.Schema(
+    {
+        vol.Required("project_id"): cv.string,
+        vol.Optional("name"): cv.string,
+        vol.Optional("area_id"): vol.Any(cv.string, None),  # Allow None to clear area
     }
 )
 
@@ -66,14 +75,20 @@ SERVICE_DELETE_PROJECT_SCHEMA = vol.Schema(
 SERVICE_ADD_RECEIPT_SCHEMA = vol.Schema(
     {
         vol.Required("project_id"): cv.string,
-        vol.Optional("area_id"): cv.string,
         vol.Required("merchant"): cv.string,
         vol.Required("date"): cv.string,
         vol.Required("total"): vol.Coerce(float),
         vol.Optional("currency", default=DEFAULT_CURRENCY): cv.string,
         vol.Optional("category_summary"): cv.string,
-        vol.Optional("image_data"): cv.string,  # Base64 encoded image
+        vol.Optional("image_data"): cv.string,  # Base64 encoded image (single, legacy)
         vol.Optional("image_filename"): cv.string,
+        vol.Optional("images"): vol.All(  # Multiple images array
+            cv.ensure_list,
+            [vol.Schema({
+                vol.Required("data"): cv.string,  # Base64 encoded
+                vol.Required("filename"): cv.string,
+            })]
+        ),
     }
 )
 
@@ -85,6 +100,21 @@ SERVICE_UPDATE_RECEIPT_SCHEMA = vol.Schema(
         vol.Optional("total"): vol.Coerce(float),
         vol.Optional("currency"): cv.string,
         vol.Optional("category_summary"): cv.string,
+        vol.Optional("images"): vol.All(  # Multiple images array (replaces existing)
+            cv.ensure_list,
+            [vol.Schema({
+                vol.Required("data"): cv.string,  # Base64 encoded
+                vol.Required("filename"): cv.string,
+            })]
+        ),
+        vol.Optional("add_images"): vol.All(  # Add images to existing
+            cv.ensure_list,
+            [vol.Schema({
+                vol.Required("data"): cv.string,
+                vol.Required("filename"): cv.string,
+            })]
+        ),
+        vol.Optional("remove_image_paths"): vol.All(cv.ensure_list, [cv.string]),  # Remove specific images
     }
 )
 
@@ -114,6 +144,29 @@ async def async_setup_services(
         await coordinator.async_refresh_data()
 
         _LOGGER.info("Created project: %s (%s)", name, project.project_id)
+
+    async def handle_update_project(call: ServiceCall) -> None:
+        """Handle update_project service call."""
+        project_id = call.data["project_id"]
+        name = call.data.get("name")
+        area_id = call.data.get("area_id")
+
+        _LOGGER.debug("Updating project: %s", project_id)
+
+        project = storage.get_project(project_id)
+        if not project:
+            raise ServiceValidationError(f"Project not found: {project_id}")
+
+        # Update fields if provided
+        if name is not None:
+            project.name = name
+        if "area_id" in call.data:  # Check if key exists (allows setting to None)
+            project.area_id = area_id if area_id else None
+
+        await storage.async_update_project(project)
+        await coordinator.async_refresh_data()
+
+        _LOGGER.info("Updated project: %s (%s)", project.name, project_id)
 
     async def handle_close_project(call: ServiceCall) -> None:
         """Handle close_project service call."""
@@ -162,10 +215,14 @@ async def async_setup_services(
         # Delete all receipts for this project first
         receipts = storage.get_receipts_for_project(project_id)
         for receipt in receipts:
-            # Delete image file if exists
-            if receipt.image_path:
+            # Delete all image files if exist
+            all_paths = receipt.image_paths or []
+            if receipt.image_path and receipt.image_path not in all_paths:
+                all_paths.append(receipt.image_path)
+            
+            for img_path in all_paths:
                 try:
-                    filename = os.path.basename(receipt.image_path)
+                    filename = os.path.basename(img_path)
                     receipt_dir = hass.config.path(RECEIPT_IMAGE_DIR)
                     full_path = os.path.join(receipt_dir, filename)
 
@@ -185,75 +242,108 @@ async def async_setup_services(
 
         _LOGGER.info("Deleted project: %s (and %d receipts)", project_id, len(receipts))
 
+    async def _save_image(image_data: str, image_filename: str) -> str:
+        """Save a base64-encoded image and return its web path."""
+        # Validate image size
+        decoded_size = len(image_data) * 3 / 4
+        if decoded_size > MAX_IMAGE_SIZE:
+            raise ServiceValidationError(
+                f"Image size ({decoded_size / (1024 * 1024):.1f}MB) exceeds maximum allowed size (10MB)"
+            )
+
+        # Decode base64 image
+        image_bytes = base64.b64decode(image_data)
+
+        # Sanitize filename - keep only alphanumeric, dots, and hyphens
+        safe_filename = re.sub(r'[^a-zA-Z0-9._-]', '_', os.path.basename(image_filename))
+        
+        # Create unique filename
+        receipt_dir = hass.config.path(RECEIPT_IMAGE_DIR)
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
+        unique_filename = f"{timestamp}_{safe_filename}"
+        full_path = os.path.join(receipt_dir, unique_filename)
+
+        # Save image using executor to avoid blocking
+        def write_image():
+            with open(full_path, "wb") as f:
+                f.write(image_bytes)
+
+        await hass.async_add_executor_job(write_image)
+
+        # Return relative path for web access
+        return f"/local/{DOMAIN}/receipts/{unique_filename}"
+
+    async def _delete_image(image_path: str) -> None:
+        """Delete an image file."""
+        try:
+            filename = os.path.basename(image_path)
+            receipt_dir = hass.config.path(RECEIPT_IMAGE_DIR)
+            full_path = os.path.join(receipt_dir, filename)
+
+            def delete_file(path=full_path):
+                if os.path.exists(path):
+                    os.remove(path)
+
+            await hass.async_add_executor_job(delete_file)
+        except OSError as err:
+            _LOGGER.error("Failed to delete image %s: %s", image_path, err)
+
     async def handle_add_receipt(call: ServiceCall) -> None:
         """Handle add_receipt service call."""
         project_id = call.data["project_id"]
-        area_id = call.data.get("area_id")
         merchant = call.data["merchant"]
         date = call.data["date"]
         total = call.data["total"]
         currency = call.data.get("currency", DEFAULT_CURRENCY)
         category_summary = call.data.get("category_summary")
+        
+        # Legacy single image support
         image_data = call.data.get("image_data")
         image_filename = call.data.get("image_filename")
+        
+        # New multiple images support
+        images = call.data.get("images", [])
 
         _LOGGER.debug("Adding receipt for project: %s", project_id)
 
-        # Validate image size if provided
-        if image_data:
-            # Calculate approximate decoded size
-            decoded_size = len(image_data) * 3 / 4
-            if decoded_size > MAX_IMAGE_SIZE:
-                raise ServiceValidationError(
-                    f"Image size ({decoded_size / (1024 * 1024):.1f}MB) exceeds maximum allowed size (10MB)"
-                )
-
-        # Handle image upload
-        image_path = None
+        # Process images
+        image_paths: list[str] = []
+        
+        # Handle legacy single image
         if image_data and image_filename:
             try:
-                # Decode base64 image
-                image_bytes = base64.b64decode(image_data)
-
-                # Sanitize filename - keep only alphanumeric, dots, and hyphens
-                safe_filename = re.sub(r'[^a-zA-Z0-9._-]', '_', os.path.basename(image_filename))
-                
-                # Create unique filename
-                receipt_dir = hass.config.path(RECEIPT_IMAGE_DIR)
-                timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-                unique_filename = f"{timestamp}_{safe_filename}"
-                full_path = os.path.join(receipt_dir, unique_filename)
-
-                # Save image using executor to avoid blocking
-                def write_image():
-                    with open(full_path, "wb") as f:
-                        f.write(image_bytes)
-
-                await hass.async_add_executor_job(write_image)
-
-                # Store relative path for web access
-                image_path = f"/local/{DOMAIN}/receipts/{unique_filename}"
-                _LOGGER.debug("Saved receipt image: %s", image_path)
-
+                path = await _save_image(image_data, image_filename)
+                image_paths.append(path)
+                _LOGGER.debug("Saved receipt image: %s", path)
             except (base64.Error, OSError) as err:
                 _LOGGER.error("Failed to save receipt image: %s", err)
                 raise ServiceValidationError(f"Failed to save receipt image: {err}")
 
+        # Handle multiple images
+        for idx, img in enumerate(images):
+            try:
+                path = await _save_image(img["data"], img["filename"])
+                image_paths.append(path)
+                _LOGGER.debug("Saved receipt image %d: %s", idx + 1, path)
+            except (base64.Error, OSError) as err:
+                _LOGGER.error("Failed to save receipt image %d: %s", idx + 1, err)
+                raise ServiceValidationError(f"Failed to save receipt image {idx + 1}: {err}")
+
         receipt = Receipt.create(
             project_id=project_id,
-            area_id=area_id,
             merchant=merchant,
             date=date,
             total=total,
             currency=currency,
-            image_path=image_path,
+            image_path=image_paths[0] if image_paths else None,  # Legacy compatibility
+            image_paths=image_paths,
             category_summary=category_summary,
         )
 
         await storage.async_add_receipt(receipt)
         await coordinator.async_refresh_data()
 
-        _LOGGER.info("Added receipt: %s for project: %s", receipt.receipt_id, project_id)
+        _LOGGER.info("Added receipt: %s for project: %s with %d images", receipt.receipt_id, project_id, len(image_paths))
 
     async def handle_update_receipt(call: ServiceCall) -> None:
         """Handle update_receipt service call."""
@@ -277,6 +367,49 @@ async def async_setup_services(
         if "category_summary" in call.data:
             receipt.category_summary = call.data["category_summary"]
 
+        # Handle image removal
+        remove_paths = call.data.get("remove_image_paths", [])
+        if remove_paths:
+            for path in remove_paths:
+                if path in receipt.image_paths:
+                    receipt.image_paths.remove(path)
+                    await _delete_image(path)
+                if receipt.image_path == path:
+                    receipt.image_path = receipt.image_paths[0] if receipt.image_paths else None
+
+        # Handle adding new images
+        add_images = call.data.get("add_images", [])
+        for idx, img in enumerate(add_images):
+            try:
+                path = await _save_image(img["data"], img["filename"])
+                receipt.image_paths.append(path)
+                if not receipt.image_path:
+                    receipt.image_path = path
+                _LOGGER.debug("Added image %d to receipt: %s", idx + 1, path)
+            except (base64.Error, OSError) as err:
+                _LOGGER.error("Failed to add image %d to receipt: %s", idx + 1, err)
+                raise ServiceValidationError(f"Failed to add image {idx + 1}: {err}")
+
+        # Handle replacing all images
+        if "images" in call.data:
+            # Delete old images
+            for old_path in receipt.image_paths:
+                await _delete_image(old_path)
+            
+            # Save new images
+            new_paths: list[str] = []
+            for idx, img in enumerate(call.data["images"]):
+                try:
+                    path = await _save_image(img["data"], img["filename"])
+                    new_paths.append(path)
+                    _LOGGER.debug("Saved replacement image %d: %s", idx + 1, path)
+                except (base64.Error, OSError) as err:
+                    _LOGGER.error("Failed to save replacement image %d: %s", idx + 1, err)
+                    raise ServiceValidationError(f"Failed to save image {idx + 1}: {err}")
+            
+            receipt.image_paths = new_paths
+            receipt.image_path = new_paths[0] if new_paths else None
+
         receipt.updated_at = datetime.now(timezone.utc).isoformat()
 
         await storage.async_update_receipt(receipt)
@@ -294,29 +427,18 @@ async def async_setup_services(
         if not receipt:
             raise ServiceValidationError(f"Receipt not found: {receipt_id}")
 
-        # Delete image file if exists
-        if receipt.image_path:
-            try:
-                # Convert web path to file path
-                filename = os.path.basename(receipt.image_path)
-                receipt_dir = hass.config.path(RECEIPT_IMAGE_DIR)
-                full_path = os.path.join(receipt_dir, filename)
-                
-                # Delete using executor to avoid blocking
-                def delete_image():
-                    if os.path.exists(full_path):
-                        os.remove(full_path)
-                        
-                await hass.async_add_executor_job(delete_image)
-                _LOGGER.debug("Deleted receipt image: %s", full_path)
-            except OSError as err:
-                _LOGGER.error("Failed to delete receipt image: %s", err)
-                # Continue with receipt deletion even if image deletion fails
+        # Delete all image files
+        all_paths = receipt.image_paths or []
+        if receipt.image_path and receipt.image_path not in all_paths:
+            all_paths.append(receipt.image_path)
+        
+        for img_path in all_paths:
+            await _delete_image(img_path)
 
         await storage.async_delete_receipt(receipt_id)
         await coordinator.async_refresh_data()
 
-        _LOGGER.info("Deleted receipt: %s", receipt_id)
+        _LOGGER.info("Deleted receipt: %s (and %d images)", receipt_id, len(all_paths))
 
     # Register services
     hass.services.async_register(
@@ -324,6 +446,13 @@ async def async_setup_services(
         SERVICE_CREATE_PROJECT,
         handle_create_project,
         schema=SERVICE_CREATE_PROJECT_SCHEMA,
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_UPDATE_PROJECT,
+        handle_update_project,
+        schema=SERVICE_UPDATE_PROJECT_SCHEMA,
     )
 
     hass.services.async_register(

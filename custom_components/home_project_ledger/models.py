@@ -63,8 +63,8 @@ class Receipt:
 
     receipt_id: str
     project_id: str
-    area_id: Optional[str]
-    image_path: Optional[str]
+    image_path: Optional[str]  # Legacy single image (deprecated)
+    image_paths: list[str]  # Multiple image paths
     merchant: str
     date: str
     total: float
@@ -77,21 +77,25 @@ class Receipt:
     def create(
         cls,
         project_id: str,
-        area_id: Optional[str],
         merchant: str,
         date: str,
         total: float,
         currency: str,
         image_path: Optional[str] = None,
+        image_paths: Optional[list[str]] = None,
         category_summary: Optional[str] = None,
     ) -> "Receipt":
         """Create a new receipt."""
         now = datetime.now(timezone.utc).isoformat()
+        # Support both legacy single image and new multiple images
+        paths = image_paths or []
+        if image_path and image_path not in paths:
+            paths.insert(0, image_path)
         return cls(
             receipt_id=str(uuid.uuid4()),
             project_id=project_id,
-            area_id=area_id,
             image_path=image_path,
+            image_paths=paths,
             merchant=merchant,
             date=date,
             total=total,
@@ -106,8 +110,8 @@ class Receipt:
         return {
             "receipt_id": self.receipt_id,
             "project_id": self.project_id,
-            "area_id": self.area_id,
             "image_path": self.image_path,
+            "image_paths": self.image_paths,
             "merchant": self.merchant,
             "date": self.date,
             "total": self.total,
@@ -120,11 +124,16 @@ class Receipt:
     @classmethod
     def from_dict(cls, data: dict) -> "Receipt":
         """Create receipt from dictionary."""
+        # Handle migration from old format (single image_path) to new (image_paths list)
+        image_paths = data.get("image_paths", [])
+        image_path = data.get("image_path")
+        if image_path and image_path not in image_paths:
+            image_paths.insert(0, image_path)
         return cls(
             receipt_id=data["receipt_id"],
             project_id=data["project_id"],
-            area_id=data.get("area_id"),
-            image_path=data.get("image_path"),
+            image_path=image_path,
+            image_paths=image_paths,
             merchant=data["merchant"],
             date=data["date"],
             total=data["total"],

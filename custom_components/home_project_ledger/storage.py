@@ -123,5 +123,11 @@ class ProjectLedgerStorage:
         return [r for r in self._receipts.values() if r.project_id == project_id]
 
     def get_receipts_for_area(self, area_id: str) -> list[Receipt]:
-        """Get all receipts for a specific area."""
-        return [r for r in self._receipts.values() if r.area_id == area_id]
+        """Get all receipts for projects in a specific area."""
+        # First find all projects in this area
+        project_ids_in_area = {
+            p.project_id for p in self._projects.values()
+            if p.area_id == area_id
+        }
+        # Return receipts belonging to those projects
+        return [r for r in self._receipts.values() if r.project_id in project_ids_in_area]
