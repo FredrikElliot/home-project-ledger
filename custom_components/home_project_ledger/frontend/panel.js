@@ -62,6 +62,13 @@ const TRANSLATIONS = {
     categoryOptional: "Category (optional)",
     project: "Project",
     selectProject: "Select a project...",
+    budgetOptional: "Budget (optional)",
+    budgetPlaceholder: "e.g., 50000",
+    budget: "Budget",
+    spent: "Spent",
+    remaining: "Remaining",
+    overBudget: "Over budget",
+    noBudget: "No budget set",
     
     // Hints
     existingMerchants: "{count} existing merchants",
@@ -221,6 +228,13 @@ const TRANSLATIONS = {
     categoryOptional: "Kategori (valfritt)",
     project: "Projekt",
     selectProject: "Välj ett projekt...",
+    budgetOptional: "Budget (valfritt)",
+    budgetPlaceholder: "t.ex. 50000",
+    budget: "Budget",
+    spent: "Spenderat",
+    remaining: "Återstår",
+    overBudget: "Över budget",
+    noBudget: "Ingen budget satt",
     
     // Hints
     existingMerchants: "{count} befintliga butiker",
@@ -503,6 +517,14 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .project-name { font-size: 16px; font-weight: 400; color: var(--primary-text-color, #212121); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .project-meta { font-size: 14px; color: var(--secondary-text-color, #757575); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .project-spend { font-size: 16px; font-weight: 500; color: var(--primary-text-color, #212121); margin-left: 16px; flex-shrink: 0; }
+        .project-budget { margin-top: 6px; }
+        .budget-bar { height: 6px; background-color: var(--divider-color, #e0e0e0); border-radius: 3px; overflow: hidden; margin-bottom: 4px; }
+        .budget-progress { height: 100%; background-color: var(--success-color, #4caf50); border-radius: 3px; transition: width 0.3s ease; }
+        .budget-bar.warning .budget-progress { background-color: var(--warning-color, #ff9800); }
+        .budget-bar.over .budget-progress { background-color: var(--error-color, #f44336); }
+        .budget-text { font-size: 12px; color: var(--secondary-text-color, #757575); }
+        .budget-text.warning { color: var(--warning-color, #ff9800); }
+        .budget-text.over { color: var(--error-color, #f44336); }
         .project-status-badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin-left: 12px; flex-shrink: 0; }
         .project-status-badge.open { background-color: rgba(76, 175, 80, 0.1); color: var(--success-color, #4caf50); }
         .project-status-badge.closed { background-color: rgba(158, 158, 158, 0.1); color: var(--disabled-color, #9e9e9e); }
@@ -516,6 +538,12 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .menu-item.danger { color: var(--error-color, #f44336); }
         .menu-item svg { width: 20px; height: 20px; flex-shrink: 0; }
         .project-detail { background-color: var(--primary-background-color, #fafafa); padding: 16px; border-top: 1px solid var(--divider-color, #e0e0e0); }
+        .budget-summary { display: flex; gap: 24px; padding: 12px 16px; background-color: var(--card-background-color, #fff); border-radius: 8px; margin-bottom: 16px; }
+        .budget-summary-item { display: flex; flex-direction: column; }
+        .budget-summary-item .budget-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--secondary-text-color, #757575); margin-bottom: 2px; }
+        .budget-summary-item .budget-value { font-size: 16px; font-weight: 500; color: var(--primary-text-color, #212121); }
+        .budget-summary-item.warning .budget-value { color: var(--warning-color, #ff9800); }
+        .budget-summary-item.over .budget-label, .budget-summary-item.over .budget-value { color: var(--error-color, #f44336); }
         .receipts-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
         .receipts-header h4 { margin: 0; font-size: 14px; font-weight: 500; color: var(--secondary-text-color, #757575); text-transform: uppercase; letter-spacing: 0.5px; }
         .add-btn { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border: none; background-color: var(--primary-color, #03a9f4); color: white; border-radius: 16px; font-size: 13px; font-weight: 500; cursor: pointer; }
@@ -1189,12 +1217,33 @@ class HomeProjectLedgerPanel extends HTMLElement {
     }
 
     const receiptText = (count) => count === 1 ? this._t('receipt') : this._t('receiptsPlural');
+    
+    // Budget progress indicator
+    let budgetHtml = '';
+    if (project.budget && project.budget > 0) {
+      const spent = project.spend || 0;
+      const percentage = Math.min(100, (spent / project.budget) * 100);
+      const remaining = project.budget - spent;
+      const isOver = remaining < 0;
+      const progressClass = isOver ? 'over' : (percentage > 80 ? 'warning' : '');
+      budgetHtml = '<div class="project-budget">' +
+        '<div class="budget-bar ' + progressClass + '">' +
+          '<div class="budget-progress" style="width: ' + percentage + '%"></div>' +
+        '</div>' +
+        '<span class="budget-text ' + progressClass + '">' + 
+          this._formatCurrency(spent) + ' / ' + this._formatCurrency(project.budget) +
+          (isOver ? ' (' + this._t('overBudget') + ')' : '') +
+        '</span>' +
+      '</div>';
+    }
+    
     return '<div class="project-wrapper">' +
       '<div class="project-item ' + (isExpanded ? 'expanded' : '') + '" data-project-id="' + project.project_id + '">' +
         '<div class="project-icon ' + project.status + '">' + icon + '</div>' +
         '<div class="project-content">' +
           '<div class="project-name">' + this._escapeHtml(project.name) + '</div>' +
           '<div class="project-meta">' + this._escapeHtml(areaName) + ' &middot; ' + (project.receipts?.length || 0) + ' ' + receiptText(project.receipts?.length || 0) + '</div>' +
+          budgetHtml +
         '</div>' +
         '<div class="project-spend">' + this._formatCurrency(project.spend) + '</div>' +
         '<span class="project-status-badge ' + project.status + '">' + (isOpen ? this._t('open') : this._t('closed')) + '</span>' +
@@ -1212,6 +1261,30 @@ class HomeProjectLedgerPanel extends HTMLElement {
     const receipts = project.receipts || [];
     const addIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"/></svg>';
     
+    // Budget summary for detailed view
+    let budgetSummaryHtml = '';
+    if (project.budget && project.budget > 0) {
+      const spent = project.spend || 0;
+      const remaining = project.budget - spent;
+      const isOver = remaining < 0;
+      const statusClass = isOver ? 'over' : (spent / project.budget > 0.8 ? 'warning' : '');
+      
+      budgetSummaryHtml = '<div class="budget-summary">' +
+        '<div class="budget-summary-item">' +
+          '<span class="budget-label">' + this._t('budget') + '</span>' +
+          '<span class="budget-value">' + this._formatCurrency(project.budget) + '</span>' +
+        '</div>' +
+        '<div class="budget-summary-item">' +
+          '<span class="budget-label">' + this._t('spent') + '</span>' +
+          '<span class="budget-value">' + this._formatCurrency(spent) + '</span>' +
+        '</div>' +
+        '<div class="budget-summary-item ' + statusClass + '">' +
+          '<span class="budget-label">' + (isOver ? this._t('overBudget') : this._t('remaining')) + '</span>' +
+          '<span class="budget-value">' + this._formatCurrency(Math.abs(remaining)) + '</span>' +
+        '</div>' +
+      '</div>';
+    }
+    
     let receiptsHtml = '';
     if (receipts.length === 0) {
       receiptsHtml = '<div class="empty-receipts">' + this._t('noReceiptsInProject') + '</div>';
@@ -1220,6 +1293,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
     }
 
     return '<div class="project-detail">' +
+      budgetSummaryHtml +
       '<div class="receipts-header">' +
         '<h4>' + this._t('receipts') + '</h4>' +
         '<button class="add-btn" data-action="add-receipt" data-project-id="' + project.project_id + '">' + addIcon + this._t('addReceipt') + '</button>' +
@@ -1320,6 +1394,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         '<div class="modal-body">' +
           '<div class="form-group"><label>' + this._t('projectName') + ' *</label><input type="text" id="project-name" value="' + this._escapeHtml(data.name || '') + '" placeholder="' + this._t('projectNamePlaceholder') + '" required></div>' +
           '<div class="form-group"><label>' + this._t('areaOptional') + '</label><select id="project-area">' + areaOptions + '</select></div>' +
+          '<div class="form-group"><label>' + this._t('budgetOptional') + '</label><input type="number" id="project-budget" value="' + (data.budget || '') + '" placeholder="' + this._t('budgetPlaceholder') + '" min="0" step="0.01"></div>' +
         '</div>' +
         '<div class="modal-actions">' +
           '<button class="btn btn-secondary" data-action="close-modal">' + this._t('cancel') + '</button>' +
@@ -1852,6 +1927,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
     const isEdit = !!data.project_id;
     const name = this._container.querySelector("#project-name")?.value?.trim();
     const areaId = this._container.querySelector("#project-area")?.value || null;
+    const budgetInput = this._container.querySelector("#project-budget")?.value;
+    const budget = budgetInput ? parseFloat(budgetInput) : null;
 
     if (!name) {
       alert(this._t('pleaseEnterProjectName'));
@@ -1864,12 +1941,17 @@ class HomeProjectLedgerPanel extends HTMLElement {
           project_id: data.project_id,
           name,
           area_id: areaId || null,
+          budget: budget,
         });
       } else {
-        await this._hass.callService(DOMAIN, "create_project", {
+        const serviceData = {
           name,
           area_id: areaId || undefined,
-        });
+        };
+        if (budget !== null && budget > 0) {
+          serviceData.budget = budget;
+        }
+        await this._hass.callService(DOMAIN, "create_project", serviceData);
       }
       this._state.modal = null;
       setTimeout(() => this._loadData(), 500);
