@@ -92,7 +92,9 @@ class LocalStorageProvider(CloudStorageProvider):
         """Get the current status of local storage."""
         status = StorageStatus(
             connected=True,
-            provider=StorageProviderType.LOCAL,
+            authenticated=True,
+            provider_type=StorageProviderType.LOCAL,
+            provider_name="Local Storage",
         )
         
         try:
@@ -111,7 +113,6 @@ class LocalStorageProvider(CloudStorageProvider):
             used, count = await self.hass.async_add_executor_job(_get_stats)
             status.storage_used = used
             status.image_count = count
-            status.user_name = "Local Storage"
             
         except Exception as e:
             _LOGGER.error("Failed to get local storage stats: %s", e)

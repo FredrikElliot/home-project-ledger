@@ -125,6 +125,49 @@ const TRANSLATIONS = {
     invalidImageType: "Invalid file type. Please upload an image.",
     viewPhoto: "View Photo",
     closePhoto: "Close",
+    
+    // Settings / Cloud Storage
+    settings: "Settings",
+    storageSettings: "Storage Settings",
+    storageProvider: "Storage Provider",
+    storageProviderDesc: "Choose where to store your receipt images",
+    localStorage: "Local Storage",
+    localStorageDesc: "Store images on the Home Assistant server",
+    googleDrive: "Google Drive",
+    googleDriveDesc: "Store images in your Google Drive account",
+    oneDrive: "OneDrive",
+    oneDriveDesc: "Store images in your Microsoft OneDrive account",
+    dropbox: "Dropbox",
+    dropboxDesc: "Store images in your Dropbox account",
+    webdav: "WebDAV",
+    webdavDesc: "Store images on a WebDAV server (Nextcloud, ownCloud, etc.)",
+    connected: "Connected",
+    notConnected: "Not connected",
+    connect: "Connect",
+    disconnect: "Disconnect",
+    configure: "Configure",
+    authenticate: "Authenticate",
+    authorizing: "Authorizing...",
+    storageUsed: "Storage Used",
+    notConfigured: "Not configured",
+    notAvailableYet: "Not available yet",
+    oauthInstructions: "Click the button below to authorize access. You'll be redirected to sign in.",
+    pasteAuthCode: "Paste the authorization code here after signing in",
+    authCode: "Authorization Code",
+    submitAuthCode: "Submit",
+    webdavUrl: "WebDAV URL",
+    webdavUsername: "Username",
+    webdavPassword: "Password",
+    saveWebdav: "Save WebDAV Settings",
+    configureCredentials: "Configure API Credentials",
+    configureCredentialsDesc: "You need to configure API credentials before connecting to cloud storage providers.",
+    openIntegrationSettings: "Open Integration Settings",
+    credentialsConfigured: "Credentials configured",
+    currentStorage: "Current Storage",
+    switchProvider: "Switch Provider",
+    failedStorageConfig: "Failed to configure storage",
+    storageConnected: "Storage connected successfully",
+    storageDisconnected: "Switched to local storage",
   },
   sv: {
     // Navigation
@@ -243,6 +286,49 @@ const TRANSLATIONS = {
     invalidImageType: "Ogiltig filtyp. Ladda upp en bild.",
     viewPhoto: "Visa foto",
     closePhoto: "Stäng",
+    
+    // Settings / Cloud Storage
+    settings: "Inställningar",
+    storageSettings: "Lagringsinställningar",
+    storageProvider: "Lagringsleverantör",
+    storageProviderDesc: "Välj var dina kvittobilder ska lagras",
+    localStorage: "Lokal lagring",
+    localStorageDesc: "Lagra bilder på Home Assistant-servern",
+    googleDrive: "Google Drive",
+    googleDriveDesc: "Lagra bilder i ditt Google Drive-konto",
+    oneDrive: "OneDrive",
+    oneDriveDesc: "Lagra bilder i ditt Microsoft OneDrive-konto",
+    dropbox: "Dropbox",
+    dropboxDesc: "Lagra bilder i ditt Dropbox-konto",
+    webdav: "WebDAV",
+    webdavDesc: "Lagra bilder på en WebDAV-server (Nextcloud, ownCloud, etc.)",
+    connected: "Ansluten",
+    notConnected: "Ej ansluten",
+    connect: "Anslut",
+    disconnect: "Koppla från",
+    configure: "Konfigurera",
+    authenticate: "Autentisera",
+    authorizing: "Auktoriserar...",
+    storageUsed: "Använt utrymme",
+    notConfigured: "Ej konfigurerad",
+    notAvailableYet: "Inte tillgänglig ännu",
+    oauthInstructions: "Klicka på knappen nedan för att auktorisera åtkomst. Du kommer att omdirigeras för att logga in.",
+    pasteAuthCode: "Klistra in auktoriseringskoden här efter inloggning",
+    authCode: "Auktoriseringskod",
+    submitAuthCode: "Skicka",
+    webdavUrl: "WebDAV URL",
+    webdavUsername: "Användarnamn",
+    webdavPassword: "Lösenord",
+    saveWebdav: "Spara WebDAV-inställningar",
+    configureCredentials: "Konfigurera API-uppgifter",
+    configureCredentialsDesc: "Du behöver konfigurera API-uppgifter innan du kan ansluta till molnlagringsleverantörer.",
+    openIntegrationSettings: "Öppna integrationsinställningar",
+    credentialsConfigured: "Uppgifter konfigurerade",
+    currentStorage: "Aktuell lagring",
+    switchProvider: "Byt leverantör",
+    failedStorageConfig: "Kunde inte konfigurera lagring",
+    storageConnected: "Lagring ansluten",
+    storageDisconnected: "Bytte till lokal lagring",
   }
 };
 
@@ -267,6 +353,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
       modal: null,
       pendingPhotos: [], // For new photos being added to a receipt {dataUrl, file}
       photoViewerIndex: -1, // For viewing photos in fullscreen
+      storageStatus: null, // Cloud storage status
+      authCodeInput: "", // For OAuth flow
     };
     this._initialized = false;
   }
@@ -681,16 +769,18 @@ class HomeProjectLedgerPanel extends HTMLElement {
     const receiptsIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M3,22V3H21V22L18,20L15,22L12,20L9,22L6,20L3,22M17,9V7H7V9H17M15,13V11H7V13H15M13,17V15H7V17H13Z"/></svg>';
     const merchantsIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M18.36,9L18.96,12H5.04L5.64,9H18.36M20,4H4V6H20V4M20,7H4L3,12V14H4V20H14V14H18V20H20V14H21V12L20,7M6,18V14H12V18H6Z"/></svg>';
     const categoriesIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12L14.25,12L12,7.39L9.75,12L4,12A8,8 0 0,1 12,4Z"/></svg>';
+    const settingsIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/></svg>';
 
     this._container.innerHTML = `
       ${this._renderMobileAppBar()}
-      ${this._renderMainNav(projectsIcon, receiptsIcon, merchantsIcon, categoriesIcon, allReceipts.length, merchants.length, categories.length)}
+      ${this._renderMainNav(projectsIcon, receiptsIcon, merchantsIcon, categoriesIcon, settingsIcon, allReceipts.length, merchants.length, categories.length)}
       <div class="main-content">
         <div class="container">
           ${this._state.activeTab === 'projects' ? this._renderProjectsTab(openProjects, closedProjects) : ''}
           ${this._state.activeTab === 'receipts' ? this._renderReceiptsTab(allReceipts) : ''}
           ${this._state.activeTab === 'merchants' ? this._renderMerchantsTab(merchants) : ''}
           ${this._state.activeTab === 'categories' ? this._renderCategoriesTab(categories) : ''}
+          ${this._state.activeTab === 'settings' ? this._renderSettingsTab() : ''}
         </div>
       </div>
       ${this._renderFAB()}
@@ -709,17 +799,19 @@ class HomeProjectLedgerPanel extends HTMLElement {
     '</div>';
   }
 
-  _renderMainNav(projectsIcon, receiptsIcon, merchantsIcon, categoriesIcon, receiptsCount, merchantsCount, categoriesCount) {
+  _renderMainNav(projectsIcon, receiptsIcon, merchantsIcon, categoriesIcon, settingsIcon, receiptsCount, merchantsCount, categoriesCount) {
     const isProjects = this._state.activeTab === 'projects';
     const isReceipts = this._state.activeTab === 'receipts';
     const isMerchants = this._state.activeTab === 'merchants';
     const isCategories = this._state.activeTab === 'categories';
+    const isSettings = this._state.activeTab === 'settings';
 
     return '<nav class="main-nav">' +
       '<button class="main-nav-item ' + (isProjects ? 'active' : '') + '" data-tab="projects">' + projectsIcon + '<span class="nav-label">' + this._t('projects') + '<span class="nav-badge">' + this._state.projects.length + '</span></span></button>' +
       '<button class="main-nav-item ' + (isReceipts ? 'active' : '') + '" data-tab="receipts">' + receiptsIcon + '<span class="nav-label">' + this._t('receipts') + '<span class="nav-badge">' + receiptsCount + '</span></span></button>' +
       '<button class="main-nav-item ' + (isMerchants ? 'active' : '') + '" data-tab="merchants">' + merchantsIcon + '<span class="nav-label">' + this._t('merchants') + '<span class="nav-badge">' + merchantsCount + '</span></span></button>' +
       '<button class="main-nav-item ' + (isCategories ? 'active' : '') + '" data-tab="categories">' + categoriesIcon + '<span class="nav-label">' + this._t('categories') + '<span class="nav-badge">' + categoriesCount + '</span></span></button>' +
+      '<button class="main-nav-item ' + (isSettings ? 'active' : '') + '" data-tab="settings">' + settingsIcon + '<span class="nav-label">' + this._t('settings') + '</span></button>' +
     '</nav>';
   }
 
@@ -871,6 +963,232 @@ class HomeProjectLedgerPanel extends HTMLElement {
         '<div class="stat-card"><div class="stat-label">' + this._t('totalSpend') + '</div><div class="stat-value">' + this._formatCurrency(total) + '</div></div>' +
       '</div>' +
       '<div class="card">' + categoriesList + '</div>';
+  }
+
+  _renderSettingsTab() {
+    const status = this._state.storageStatus;
+    const cloudIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19.35,10.04C18.67,6.59 15.64,4 12,4C9.11,4 6.6,5.64 5.35,8.04C2.34,8.36 0,10.91 0,14A6,6 0 0,0 6,20H19A5,5 0 0,0 24,15C24,12.36 21.95,10.22 19.35,10.04Z"/></svg>';
+    const localIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M6,2H18A2,2 0 0,1 20,4V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V4A2,2 0 0,1 6,2M6,4V8H18V4H6M6,10V14H18V10H6M6,16V20H18V16H6Z"/></svg>';
+    const checkIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"/></svg>';
+    const warningIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M13 14H11V9H13M13 18H11V16H13M1 21H23L12 2L1 21Z"/></svg>';
+    
+    // Provider icons
+    const providerIcons = {
+      local: localIcon,
+      google_drive: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M7.71,3.5L1.15,15L4.58,21L11.13,9.5M9.73,15L6.3,21H19.42L22.85,15M22.28,14L15.42,2H8.58L8.57,2L15.43,14H22.28Z"/></svg>',
+      onedrive: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M18.5 16C20.43 16 22 14.43 22 12.5C22 10.73 20.67 9.26 18.93 9.03C18.5 6.77 16.5 5.09 14.12 5.01C12.23 2.77 8.91 2.43 6.67 4.32C5.85 5 5.24 5.91 4.92 6.93C2.55 7.3 .5 9.3 .5 11.87C.5 14.29 2.31 16 4.74 16H18.5Z"/></svg>',
+      dropbox: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,6.19L17,10.19L12,14.19L7,10.19L12,6.19M6.5,12.19L12,16.19L17.5,12.19L12,8.19L6.5,12.19M12,2L3,8L6.5,10.81L3,13.5L12,19.5L21,13.5L17.5,10.81L21,8L12,2Z"/></svg>',
+      webdav: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M4,1C2.89,1 2,1.89 2,3V7C2,8.11 2.89,9 4,9H1V11H13V9H10C11.11,9 12,8.11 12,7V3C12,1.89 11.11,1 10,1H4M4,3H10V7H4V3M3,13V18L3,20H10V18H5V13H3M14,13C12.89,13 12,13.89 12,15V19C12,20.11 12.89,21 14,21H20C21.11,21 22,20.11 22,19V15C22,13.89 21.11,13 20,13H14M14,15H20V19H14V15Z"/></svg>',
+    };
+
+    // If no status loaded yet, show loading
+    if (!status) {
+      return '<div class="page-header"><h1>' + this._t('settings') + '</h1></div>' +
+        '<div class="card"><div class="card-content" style="padding: 24px; text-align: center;">' + this._t('loading') + '</div></div>';
+    }
+
+    // Current storage status card
+    const currentProvider = status.providers?.find(p => p.type === status.provider) || { name: this._t('localStorage'), type: 'local' };
+    const isConnected = status.connected && status.authenticated;
+    
+    let statusBadge = isConnected 
+      ? '<span class="storage-status-badge connected">' + checkIcon + ' ' + this._t('connected') + '</span>'
+      : '<span class="storage-status-badge not-connected">' + warningIcon + ' ' + this._t('notConnected') + '</span>';
+    
+    let storageInfo = '';
+    if (status.storage_used && status.storage_total) {
+      const usedGB = (status.storage_used / (1024 * 1024 * 1024)).toFixed(2);
+      const totalGB = (status.storage_total / (1024 * 1024 * 1024)).toFixed(2);
+      storageInfo = '<div class="storage-info">' + this._t('storageUsed') + ': ' + usedGB + ' GB / ' + totalGB + ' GB</div>';
+    }
+
+    // Disconnect button for cloud providers
+    let disconnectBtn = '';
+    if (status.provider !== 'local' && isConnected) {
+      disconnectBtn = '<button class="secondary-btn" data-action="storage-disconnect">' + this._t('disconnect') + '</button>';
+    }
+
+    // Current storage card
+    let currentStorageCard = '<div class="card settings-card">' +
+      '<div class="card-header"><h2>' + this._t('currentStorage') + '</h2></div>' +
+      '<div class="card-content">' +
+        '<div class="current-storage-info">' +
+          '<div class="storage-provider-icon">' + (providerIcons[status.provider] || localIcon) + '</div>' +
+          '<div class="storage-provider-details">' +
+            '<div class="storage-provider-name">' + currentProvider.name + '</div>' +
+            statusBadge +
+            storageInfo +
+          '</div>' +
+          disconnectBtn +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+    // Auth code input for OAuth providers
+    let authSection = '';
+    if (status.auth_url && !isConnected && status.provider !== 'local') {
+      authSection = '<div class="card settings-card">' +
+        '<div class="card-header"><h2>' + this._t('authenticate') + '</h2></div>' +
+        '<div class="card-content">' +
+          '<p class="settings-desc">' + this._t('oauthInstructions') + '</p>' +
+          '<a href="' + status.auth_url + '" target="_blank" rel="noopener noreferrer" class="primary-btn oauth-link">' + this._t('authenticate') + '</a>' +
+          '<div class="auth-code-section">' +
+            '<p class="settings-desc">' + this._t('pasteAuthCode') + '</p>' +
+            '<div class="auth-code-input-row">' +
+              '<input type="text" class="form-input auth-code-input" placeholder="' + this._t('authCode') + '" value="' + (this._state.authCodeInput || '') + '" data-input="auth-code">' +
+              '<button class="primary-btn" data-action="submit-auth-code">' + this._t('submitAuthCode') + '</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }
+
+    // Provider selection cards
+    let providersSection = '<div class="card settings-card">' +
+      '<div class="card-header"><h2>' + this._t('switchProvider') + '</h2></div>' +
+      '<div class="card-content">' +
+        '<p class="settings-desc">' + this._t('storageProviderDesc') + '</p>' +
+        '<div class="provider-list">';
+
+    for (const provider of (status.providers || [])) {
+      const isActive = provider.type === status.provider;
+      const isAvailable = provider.available;
+      const isConfigured = provider.configured;
+      
+      let providerStatus = '';
+      let actionBtn = '';
+      
+      if (isActive && isConnected) {
+        providerStatus = '<span class="provider-badge active">' + this._t('connected') + '</span>';
+      } else if (!isAvailable) {
+        providerStatus = '<span class="provider-badge unavailable">' + this._t('notAvailableYet') + '</span>';
+      } else if (!isConfigured && provider.type !== 'local' && provider.type !== 'webdav') {
+        providerStatus = '<span class="provider-badge not-configured">' + this._t('notConfigured') + '</span>';
+        // Show configure button for unconfigured cloud providers
+        actionBtn = '<button class="secondary-btn small" data-action="open-integration-options">' + this._t('configure') + '</button>';
+      } else if (!isActive) {
+        actionBtn = '<button class="secondary-btn small" data-action="select-provider" data-provider="' + provider.type + '">' + this._t('connect') + '</button>';
+      }
+      
+      let providerDesc = '';
+      switch(provider.type) {
+        case 'local': providerDesc = this._t('localStorageDesc'); break;
+        case 'google_drive': providerDesc = this._t('googleDriveDesc'); break;
+        case 'onedrive': providerDesc = this._t('oneDriveDesc'); break;
+        case 'dropbox': providerDesc = this._t('dropboxDesc'); break;
+        case 'webdav': providerDesc = this._t('webdavDesc'); break;
+      }
+
+      providersSection += '<div class="provider-item ' + (isActive ? 'active' : '') + ' ' + (!isAvailable ? 'disabled' : '') + '">' +
+        '<div class="provider-icon">' + (providerIcons[provider.type] || cloudIcon) + '</div>' +
+        '<div class="provider-info">' +
+          '<div class="provider-name">' + provider.name + '</div>' +
+          '<div class="provider-desc">' + providerDesc + '</div>' +
+        '</div>' +
+        providerStatus +
+        actionBtn +
+      '</div>';
+    }
+
+    providersSection += '</div></div></div>';
+
+    // Check if any cloud provider needs credentials
+    const cloudProviders = (status.providers || []).filter(p => p.type !== 'local' && p.type !== 'webdav');
+    const anyCloudConfigured = cloudProviders.some(p => p.configured);
+    
+    // Credentials configuration card
+    let credentialsCard = '';
+    if (!anyCloudConfigured) {
+      const settingsIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/></svg>';
+      credentialsCard = '<div class="card settings-card credentials-card">' +
+        '<div class="card-header"><h2>' + this._t('configureCredentials') + '</h2></div>' +
+        '<div class="card-content">' +
+          '<div class="credentials-info">' +
+            '<div class="credentials-icon">' + settingsIcon + '</div>' +
+            '<div class="credentials-text">' +
+              '<p class="settings-desc">' + this._t('configureCredentialsDesc') + '</p>' +
+              '<button class="primary-btn" data-action="open-integration-options">' + this._t('openIntegrationSettings') + '</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    } else {
+      // Show compact configured message
+      const checkIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"/></svg>';
+      credentialsCard = '<div class="card settings-card">' +
+        '<div class="card-content">' +
+          '<div class="credentials-configured">' +
+            checkIcon +
+            '<span>' + this._t('credentialsConfigured') + '</span>' +
+            '<button class="text-btn" data-action="open-integration-options">' + this._t('openIntegrationSettings') + '</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }
+
+    return '<div class="page-header"><h1>' + this._t('settings') + '</h1></div>' +
+      currentStorageCard +
+      authSection +
+      providersSection +
+      credentialsCard +
+      this._renderSettingsStyles();
+  }
+
+  _renderSettingsStyles() {
+    return '<style>' +
+      '.settings-card { margin-bottom: 16px; }' +
+      '.settings-card .card-header { padding: 16px 16px 8px 16px; }' +
+      '.settings-card .card-header h2 { margin: 0; font-size: 18px; font-weight: 500; }' +
+      '.settings-card .card-content { padding: 8px 16px 16px 16px; }' +
+      '.settings-desc { color: var(--secondary-text-color); font-size: 14px; margin: 0 0 16px 0; }' +
+      '.current-storage-info { display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--secondary-background-color); border-radius: 8px; }' +
+      '.storage-provider-icon { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: var(--primary-color); color: white; border-radius: 12px; }' +
+      '.storage-provider-icon svg { width: 28px; height: 28px; }' +
+      '.storage-provider-details { flex: 1; }' +
+      '.storage-provider-name { font-size: 18px; font-weight: 500; margin-bottom: 4px; }' +
+      '.storage-status-badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: 500; }' +
+      '.storage-status-badge.connected { background: var(--success-color, #4caf50); color: white; }' +
+      '.storage-status-badge.not-connected { background: var(--warning-color, #ff9800); color: white; }' +
+      '.storage-status-badge svg { width: 14px; height: 14px; }' +
+      '.storage-info { margin-top: 8px; font-size: 13px; color: var(--secondary-text-color); }' +
+      '.provider-list { display: flex; flex-direction: column; gap: 8px; }' +
+      '.provider-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--secondary-background-color); border-radius: 8px; transition: background-color 0.2s; }' +
+      '.provider-item.active { background: var(--primary-color); color: white; }' +
+      '.provider-item.active .provider-desc { color: rgba(255,255,255,0.8); }' +
+      '.provider-item.disabled { opacity: 0.6; }' +
+      '.provider-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }' +
+      '.provider-icon svg { width: 24px; height: 24px; }' +
+      '.provider-info { flex: 1; }' +
+      '.provider-name { font-weight: 500; }' +
+      '.provider-desc { font-size: 12px; color: var(--secondary-text-color); margin-top: 2px; }' +
+      '.provider-badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }' +
+      '.provider-badge.active { background: rgba(255,255,255,0.2); }' +
+      '.provider-badge.unavailable { background: var(--disabled-color, #9e9e9e); color: white; }' +
+      '.provider-badge.not-configured { background: var(--warning-color, #ff9800); color: white; }' +
+      '.secondary-btn { padding: 8px 16px; border: 1px solid var(--divider-color); background: transparent; color: var(--primary-text-color); border-radius: 20px; font-size: 14px; cursor: pointer; }' +
+      '.secondary-btn:hover { background: var(--secondary-background-color); }' +
+      '.secondary-btn.small { padding: 6px 12px; font-size: 12px; }' +
+      '.primary-btn { padding: 10px 20px; background: var(--primary-color); color: white; border: none; border-radius: 20px; font-size: 14px; cursor: pointer; text-decoration: none; display: inline-block; }' +
+      '.primary-btn:hover { opacity: 0.9; }' +
+      '.oauth-link { margin-bottom: 16px; }' +
+      '.auth-code-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--divider-color); }' +
+      '.auth-code-input-row { display: flex; gap: 8px; }' +
+      '.auth-code-input { flex: 1; }' +
+      '.provider-item.active .secondary-btn { border-color: rgba(255,255,255,0.3); color: white; }' +
+      '.provider-item.active .secondary-btn:hover { background: rgba(255,255,255,0.1); }' +
+      '.credentials-card { border: 2px dashed var(--primary-color); background: var(--primary-background-color); }' +
+      '.credentials-card .card-header { border-bottom: none; }' +
+      '.credentials-info { display: flex; gap: 16px; align-items: flex-start; }' +
+      '.credentials-icon { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: var(--primary-color); color: white; border-radius: 12px; flex-shrink: 0; }' +
+      '.credentials-icon svg { width: 24px; height: 24px; }' +
+      '.credentials-text { flex: 1; }' +
+      '.credentials-text p { margin: 0 0 12px 0; }' +
+      '.credentials-configured { display: flex; align-items: center; gap: 8px; color: var(--success-color, #4caf50); font-size: 14px; }' +
+      '.credentials-configured svg { width: 20px; height: 20px; }' +
+      '.credentials-configured .text-btn { margin-left: auto; }' +
+      '.text-btn { background: none; border: none; color: var(--primary-color); cursor: pointer; font-size: 14px; padding: 4px 8px; }' +
+      '.text-btn:hover { text-decoration: underline; }' +
+    '</style>';
   }
 
   _renderProjectItem(project) {
@@ -1213,6 +1531,10 @@ class HomeProjectLedgerPanel extends HTMLElement {
           this._state.searchQuery = "";
           this._state.expandedProjectId = null;
           this._state.openMenuId = null;
+          // Load storage status when switching to settings tab
+          if (tab === 'settings') {
+            this._loadStorageStatus();
+          }
           this._render();
         }
       });
@@ -1294,6 +1616,14 @@ class HomeProjectLedgerPanel extends HTMLElement {
     const photoCapture = this._container.querySelector("#photo-capture");
     if (photoCapture) {
       photoCapture.addEventListener("change", (e) => this._handlePhotoFiles(e.target.files));
+    }
+
+    // Auth code input for settings
+    const authCodeInput = this._container.querySelector(".auth-code-input");
+    if (authCodeInput) {
+      authCodeInput.addEventListener("input", (e) => {
+        this._state.authCodeInput = e.target.value;
+      });
     }
   }
 
@@ -1510,6 +1840,19 @@ class HomeProjectLedgerPanel extends HTMLElement {
           this._render();
         }
         break;
+      case "select-provider":
+        this._selectStorageProvider(dataset.provider);
+        break;
+      case "storage-disconnect":
+        this._disconnectStorage();
+        break;
+      case "submit-auth-code":
+        this._submitAuthCode();
+        break;
+      case "open-integration-options":
+        // Navigate to the integration options page in Home Assistant
+        this._openIntegrationOptions();
+        break;
       case "confirm-action":
         if (this._state.modal?.data?.confirmAction) {
           this._state.modal.data.confirmAction();
@@ -1523,6 +1866,18 @@ class HomeProjectLedgerPanel extends HTMLElement {
         this._state.photoViewerIndex = -1;
         this._render();
         break;
+    }
+  }
+
+  _openIntegrationOptions() {
+    // Navigate to the integration options page in Home Assistant
+    // This uses Home Assistant's navigation API
+    if (this._hass) {
+      // First, we need to get the config entry ID
+      // Navigate to the integrations page with the entry selected
+      const url = '/config/integrations/integration/home_project_ledger';
+      history.pushState(null, '', url);
+      window.dispatchEvent(new Event('location-changed'));
     }
   }
 
@@ -1769,6 +2124,125 @@ class HomeProjectLedgerPanel extends HTMLElement {
       detail: detail,
     });
     this.dispatchEvent(event);
+  }
+
+  async _loadStorageStatus() {
+    if (!this._hass) return;
+    
+    try {
+      // Use HTTP API to get storage status
+      const response = await fetch('/api/home_project_ledger/storage/status', {
+        headers: {
+          'Authorization': 'Bearer ' + this._hass.auth.data.access_token,
+        },
+      });
+      
+      if (response.ok) {
+        this._state.storageStatus = await response.json();
+      } else {
+        throw new Error('Failed to fetch storage status');
+      }
+      this._render();
+    } catch (error) {
+      console.error("Error loading storage status:", error);
+      // Set default status on error
+      this._state.storageStatus = {
+        provider: "local",
+        provider_name: "Local Storage",
+        connected: true,
+        authenticated: true,
+        providers: [
+          { type: "local", name: "Local Storage", configured: true, available: true },
+          { type: "google_drive", name: "Google Drive", configured: false, available: true },
+          { type: "onedrive", name: "OneDrive", configured: false, available: false },
+          { type: "dropbox", name: "Dropbox", configured: false, available: false },
+          { type: "webdav", name: "WebDAV", configured: true, available: false },
+        ],
+      };
+      this._render();
+    }
+  }
+
+  async _selectStorageProvider(providerType) {
+    if (!this._hass) return;
+    
+    try {
+      const response = await fetch('/api/home_project_ledger/storage/config', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + this._hass.auth.data.access_token,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ provider: providerType }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to select provider');
+      }
+      
+      // Reload status to get auth URL if needed
+      await this._loadStorageStatus();
+    } catch (error) {
+      console.error("Error selecting provider:", error);
+      alert(this._t('failedStorageConfig'));
+    }
+  }
+
+  async _disconnectStorage() {
+    if (!this._hass) return;
+    
+    try {
+      const response = await fetch('/api/home_project_ledger/storage/config', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + this._hass.auth.data.access_token,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ disconnect: true }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to disconnect storage');
+      }
+      
+      await this._loadStorageStatus();
+    } catch (error) {
+      console.error("Error disconnecting storage:", error);
+      alert(this._t('failedStorageConfig'));
+    }
+  }
+
+  async _submitAuthCode() {
+    if (!this._hass) return;
+    
+    const authCodeInput = this._container.querySelector('.auth-code-input');
+    const authCode = authCodeInput?.value?.trim();
+    
+    if (!authCode) {
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/home_project_ledger/storage/config', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + this._hass.auth.data.access_token,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ auth_code: authCode }),
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Authentication failed');
+      }
+      
+      this._state.authCodeInput = "";
+      await this._loadStorageStatus();
+    } catch (error) {
+      console.error("Error authenticating:", error);
+      alert(this._t('failedStorageConfig'));
+    }
   }
 }
 

@@ -10,10 +10,24 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.components import panel_custom
 
-from .const import DOMAIN, RECEIPT_IMAGE_DIR, PANEL_ICON, PANEL_TITLE, PANEL_URL
+from .const import (
+    DOMAIN,
+    RECEIPT_IMAGE_DIR,
+    PANEL_ICON,
+    PANEL_TITLE,
+    PANEL_URL,
+    CONF_GOOGLE_CLIENT_ID,
+    CONF_GOOGLE_CLIENT_SECRET,
+    CONF_ONEDRIVE_CLIENT_ID,
+    CONF_ONEDRIVE_CLIENT_SECRET,
+    CONF_DROPBOX_APP_KEY,
+    CONF_DROPBOX_APP_SECRET,
+)
 from .coordinator import ProjectLedgerCoordinator
 from .services import async_setup_services
 from .storage import ProjectLedgerStorage
+from .cloud_storage_manager import CloudStorageManager
+from .http_views import async_register_views
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -69,20 +83,66 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = ProjectLedgerCoordinator(hass, storage)
     await coordinator.async_config_entry_first_refresh()
 
+    # Get credentials from both data and options (options override data)
+    all_config = {**entry.data, **entry.options}
+    
+    # Initialize cloud storage manager with credentials from config entry
+    cloud_storage_manager = CloudStorageManager(
+        hass,
+        google_client_id=all_config.get(CONF_GOOGLE_CLIENT_ID),
+        google_client_secret=all_config.get(CONF_GOOGLE_CLIENT_SECRET),
+        onedrive_client_id=all_config.get(CONF_ONEDRIVE_CLIENT_ID),
+        onedrive_client_secret=all_config.get(CONF_ONEDRIVE_CLIENT_SECRET),
+        dropbox_app_key=all_config.get(CONF_DROPBOX_APP_KEY),
+        dropbox_app_secret=all_config.get(CONF_DROPBOX_APP_SECRET),
+    )
+    await cloud_storage_manager.async_load()
+
     # Store coordinator and storage in hass.data
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = {
         "coordinator": coordinator,
         "storage": storage,
+        "cloud_storage_manager": cloud_storage_manager,
     }
 
     # Set up platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     # Set up services
-    await async_setup_services(hass, storage, coordinator)
+    await async_setup_services(hass, storage, coordinator, cloud_storage_manager)
+
+    # Register HTTP views for cloud storage API
+    async_register_views(hass)
+
+    # Listen for options updates to reload cloud storage credentials
+    entry.async_on_unload(entry.add_update_listener(async_options_updated))
 
     return True
+
+
+async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Handle options update - reload cloud storage manager with new credentials."""
+    _LOGGER.info("Options updated, reloading cloud storage credentials")
+    
+    entry_data = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if not entry_data:
+        return
+    
+    cloud_storage_manager = entry_data.get("cloud_storage_manager")
+    if not cloud_storage_manager:
+        return
+    
+    # Update credentials from new options
+    all_config = {**entry.data, **entry.options}
+    cloud_storage_manager._google_client_id = all_config.get(CONF_GOOGLE_CLIENT_ID)
+    cloud_storage_manager._google_client_secret = all_config.get(CONF_GOOGLE_CLIENT_SECRET)
+    cloud_storage_manager._onedrive_client_id = all_config.get(CONF_ONEDRIVE_CLIENT_ID)
+    cloud_storage_manager._onedrive_client_secret = all_config.get(CONF_ONEDRIVE_CLIENT_SECRET)
+    cloud_storage_manager._dropbox_app_key = all_config.get(CONF_DROPBOX_APP_KEY)
+    cloud_storage_manager._dropbox_app_secret = all_config.get(CONF_DROPBOX_APP_SECRET)
+    
+    _LOGGER.debug("Cloud storage credentials updated")
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

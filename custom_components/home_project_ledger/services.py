@@ -23,7 +23,9 @@ from .const import (
     SERVICE_CREATE_PROJECT,
     SERVICE_DELETE_PROJECT,
     SERVICE_DELETE_RECEIPT,
+    SERVICE_GET_STORAGE_STATUS,
     SERVICE_REOPEN_PROJECT,
+    SERVICE_SET_STORAGE_CONFIG,
     SERVICE_UPDATE_PROJECT,
     SERVICE_UPDATE_RECEIPT,
     STATUS_CLOSED,
@@ -32,6 +34,7 @@ from .const import (
 from .coordinator import ProjectLedgerCoordinator
 from .models import Project, Receipt
 from .storage import ProjectLedgerStorage
+from .cloud_storage.base import StorageProviderType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -124,11 +127,26 @@ SERVICE_DELETE_RECEIPT_SCHEMA = vol.Schema(
     }
 )
 
+SERVICE_SET_STORAGE_CONFIG_SCHEMA = vol.Schema(
+    {
+        vol.Optional("provider"): vol.In([p.value for p in StorageProviderType]),
+        vol.Optional("auth_code"): cv.string,  # OAuth authorization code
+        vol.Optional("disconnect"): cv.boolean,  # Disconnect cloud storage
+        vol.Optional("webdav_url"): cv.string,  # WebDAV server URL
+        vol.Optional("webdav_username"): cv.string,
+        vol.Optional("webdav_password"): cv.string,
+        vol.Optional("folder_path"): cv.string,  # Custom folder path in cloud
+    }
+)
+
+SERVICE_GET_STORAGE_STATUS_SCHEMA = vol.Schema({})
+
 
 async def async_setup_services(
     hass: HomeAssistant,
     storage: ProjectLedgerStorage,
     coordinator: ProjectLedgerCoordinator,
+    cloud_storage_manager=None,
 ) -> None:
     """Set up services for Home Project Ledger."""
 
@@ -440,6 +458,92 @@ async def async_setup_services(
 
         _LOGGER.info("Deleted receipt: %s (and %d images)", receipt_id, len(all_paths))
 
+    async def handle_set_storage_config(call: ServiceCall) -> dict:
+        """Handle set_storage_config service call."""
+        if not cloud_storage_manager:
+            raise ServiceValidationError("Cloud storage manager not initialized")
+
+        # Check if disconnecting
+        if call.data.get("disconnect"):
+            await cloud_storage_manager.disconnect()
+            _LOGGER.info("Disconnected cloud storage")
+            return {"success": True, "message": "Disconnected from cloud storage"}
+
+        # Check if setting provider
+        provider_str = call.data.get("provider")
+        if provider_str:
+            try:
+                provider = StorageProviderType(provider_str)
+                await cloud_storage_manager.set_provider(provider)
+                _LOGGER.info("Set storage provider to: %s", provider.value)
+            except ValueError:
+                raise ServiceValidationError(f"Invalid provider: {provider_str}")
+
+        # Check if authenticating with OAuth code
+        auth_code = call.data.get("auth_code")
+        if auth_code:
+            success = await cloud_storage_manager.authenticate(auth_code)
+            if not success:
+                raise ServiceValidationError("Authentication failed")
+            _LOGGER.info("Authenticated with cloud storage")
+            return {"success": True, "message": "Authentication successful"}
+
+        # Check if setting WebDAV credentials
+        webdav_url = call.data.get("webdav_url")
+        if webdav_url:
+            cloud_storage_manager.set_webdav_credentials(
+                url=webdav_url,
+                username=call.data.get("webdav_username", ""),
+                password=call.data.get("webdav_password", ""),
+            )
+            await cloud_storage_manager.async_save()
+            _LOGGER.info("Set WebDAV credentials")
+
+        # Check if setting folder path
+        folder_path = call.data.get("folder_path")
+        if folder_path:
+            cloud_storage_manager.config.folder_path = folder_path
+            await cloud_storage_manager.async_save()
+            _LOGGER.info("Set folder path to: %s", folder_path)
+
+        return {"success": True}
+
+    async def handle_get_storage_status(call: ServiceCall) -> dict:
+        """Handle get_storage_status service call."""
+        if not cloud_storage_manager:
+            return {
+                "provider": "local",
+                "provider_name": "Local Storage",
+                "connected": True,
+                "authenticated": True,
+                "providers": [{
+                    "type": "local",
+                    "name": "Local Storage",
+                    "configured": True,
+                    "available": True,
+                }],
+            }
+
+        status = await cloud_storage_manager.get_status()
+        providers = cloud_storage_manager.get_available_providers()
+        
+        # Get auth URL if OAuth provider needs authentication
+        auth_url = None
+        if not status.authenticated and status.provider_type.value != "local":
+            auth_url = cloud_storage_manager.get_auth_url()
+
+        return {
+            "provider": status.provider_type.value,
+            "provider_name": status.provider_name,
+            "connected": status.connected,
+            "authenticated": status.authenticated,
+            "storage_used": status.storage_used,
+            "storage_total": status.storage_total,
+            "error": status.error,
+            "auth_url": auth_url,
+            "providers": providers,
+        }
+
     # Register services
     hass.services.async_register(
         DOMAIN,
@@ -495,6 +599,20 @@ async def async_setup_services(
         SERVICE_DELETE_RECEIPT,
         handle_delete_receipt,
         schema=SERVICE_DELETE_RECEIPT_SCHEMA,
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SET_STORAGE_CONFIG,
+        handle_set_storage_config,
+        schema=SERVICE_SET_STORAGE_CONFIG_SCHEMA,
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_GET_STORAGE_STATUS,
+        handle_get_storage_status,
+        schema=SERVICE_GET_STORAGE_STATUS_SCHEMA,
     )
 
     _LOGGER.info("Registered Home Project Ledger services")

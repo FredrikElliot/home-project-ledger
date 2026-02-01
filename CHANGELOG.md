@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added - Cloud Storage Support
+
+#### Cloud Storage Framework
+- Abstract provider pattern for cloud storage backends
+- Support for multiple storage providers:
+  - **Local Storage** - Default, stores images on HA server
+  - **Google Drive** - Full OAuth 2.0 implementation (PoC complete)
+  - **OneDrive** - Planned, UI placeholder
+  - **Dropbox** - Planned, UI placeholder
+  - **WebDAV** - Planned, UI placeholder (for Nextcloud, ownCloud, etc.)
+- Cloud storage manager for provider switching and configuration persistence
+- Automatic token refresh for OAuth providers
+- Storage quota display and monitoring
+
+#### Settings UI
+- New Settings tab in the main navigation
+- Storage provider selection cards
+- Current storage status display with connection state
+- OAuth authentication flow with authorization code input
+- Provider icons and descriptions
+- English and Swedish translations
+
+#### New Services
+- `home_project_ledger.set_storage_config` - Configure cloud storage
+- `home_project_ledger.get_storage_status` - Get current storage status
+
+#### HTTP API
+- `/api/home_project_ledger/storage/status` - Storage status endpoint
+- `/api/home_project_ledger/storage/config` - Storage configuration endpoint
+- `/api/home_project_ledger/oauth/callback` - OAuth callback handler
+
 ## [0.1.0] - 2024-01-30
 
 ### Added - MVP Release
