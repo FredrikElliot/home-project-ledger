@@ -207,7 +207,6 @@ class ProjectSpendSensor(ProjectLedgerSensorBase):
         """Initialize sensor."""
         super().__init__(coordinator, storage, currency)
         self._project_id = project_id
-        self._project_name = project_name
         self._attr_unique_id = f"{DOMAIN}_project_{project_id}_spend"
         self._attr_name = f"{project_name} Spend"
         self._attr_icon = "mdi:notebook-edit"
@@ -228,14 +227,17 @@ class ProjectSpendSensor(ProjectLedgerSensorBase):
         """Return extra state attributes."""
         attrs = super().extra_state_attributes
         attrs["project_id"] = self._project_id
-        attrs["project_name"] = self._project_name
 
         project = self._storage.get_project(self._project_id)
         if project:
+            # Always read current name from storage
+            attrs["project_name"] = project.name
             attrs["status"] = project.status
             attrs["area_id"] = project.area_id
             attrs["budget"] = project.budget
             attrs["budget_by_category"] = project.budget_by_category
+        else:
+            attrs["project_name"] = "Unknown"
 
         # Include receipts for this project
         receipts = self._storage.get_receipts_for_project(self._project_id)
