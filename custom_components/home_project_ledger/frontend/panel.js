@@ -1,9 +1,9 @@
 /* Home Project Ledger custom panel wrapper.
  * Loads /local/home_project_ledger/panel.html and injects the Home Assistant "hass" object.
  *
- * Why this exists:
- * - Home Assistant custom panels are JS modules (web components).
- * - Your UI is HTML/JS; we keep it and load it safely.
+ * IMPORTANT:
+ * We intentionally DO NOT use Shadow DOM in this MVP, because the embedded HTML uses
+ * document.getElementById(...) which won't see inside a shadowRoot.
  */
 
 class HomeProjectLedgerPanel extends HTMLElement {
@@ -38,17 +38,17 @@ class HomeProjectLedgerPanel extends HTMLElement {
 
       const html = await resp.text();
 
-      // Use shadow DOM so CSS doesn't bleed into HA UI
-      const root = this.attachShadow({ mode: "open" });
-
-      // Scripts in innerHTML won't run automatically. We'll extract and execute them.
+      // Parse HTML
       const container = document.createElement("div");
       container.innerHTML = html;
 
+      // Extract scripts (they won't execute when injected via innerHTML)
       const scripts = Array.from(container.querySelectorAll("script"));
       scripts.forEach((s) => s.remove());
 
-      root.appendChild(container);
+      // Render HTML into LIGHT DOM (not shadow)
+      this.innerHTML = "";
+      this.appendChild(container);
 
       // Execute scripts in order
       for (const s of scripts) {
@@ -56,7 +56,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
         new Function(code)();
       }
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error("Home Project Ledger panel load failed:", err);
       this.innerHTML = `
         <ha-card header="Home Project Ledger" style="margin:16px;">
