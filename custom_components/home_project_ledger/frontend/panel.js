@@ -83,6 +83,9 @@ const TRANSLATIONS = {
     splitMustEqual100: "Percentages must total 100%",
     splitMustEqualTotal: "Amounts must equal total",
     categoryBudgetsExceedTotal: "Category budgets cannot exceed total budget",
+    splitRemaining: "Remaining",
+    splitAllocated: "Allocated",
+    splitOverAllocated: "Over-allocated by",
     
     // Hints
     existingMerchants: "{count} existing merchants",
@@ -263,6 +266,9 @@ const TRANSLATIONS = {
     splitMustEqual100: "Procenten måste summera till 100%",
     splitMustEqualTotal: "Beloppen måste summera till totalen",
     categoryBudgetsExceedTotal: "Kategoribudgetar kan inte överskrida total budget",
+    splitRemaining: "Återstår",
+    splitAllocated: "Fördelat",
+    splitOverAllocated: "Överfördelat med",
     
     // Hints
     existingMerchants: "{count} befintliga butiker",
@@ -647,6 +653,16 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .split-row input { width: 80px; padding: 6px 8px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: 4px; font-size: 13px; text-align: right; }
         .split-row .split-suffix { font-size: 13px; color: var(--secondary-text-color, #757575); width: 20px; }
         .split-error { color: var(--error-color, #f44336); font-size: 12px; margin-top: 8px; }
+        .split-remaining { margin-top: 12px; padding: 10px; background-color: var(--card-background-color, #fff); border-radius: 6px; border: 1px solid var(--divider-color, #e0e0e0); }
+        .split-remaining-bar { height: 8px; background-color: var(--divider-color, #e0e0e0); border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
+        .split-remaining-bar-fill { height: 100%; border-radius: 4px; transition: width 0.2s ease, background-color 0.2s ease; }
+        .split-remaining-bar-fill.ok { background-color: var(--success-color, #4caf50); }
+        .split-remaining-bar-fill.warning { background-color: var(--warning-color, #ff9800); }
+        .split-remaining-bar-fill.error { background-color: var(--error-color, #f44336); }
+        .split-remaining-text { display: flex; justify-content: space-between; font-size: 12px; color: var(--secondary-text-color, #757575); }
+        .split-remaining-text .allocated { color: var(--primary-text-color, #212121); }
+        .split-remaining-text .remaining { color: var(--success-color, #4caf50); }
+        .split-remaining-text .remaining.over { color: var(--error-color, #f44336); }
         
         /* Category budget rows for project modal */
         .category-budget-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
@@ -1528,7 +1544,11 @@ class HomeProjectLedgerPanel extends HTMLElement {
       const isPercent = splitType === 'percentage';
       const isAbsolute = splitType === 'absolute';
       
+      // Get the receipt total for calculations
+      const receiptTotal = parseFloat(data.total) || 0;
+      
       let splitValuesHtml = '';
+      let splitRemainingHtml = '';
       if (!isEqual) {
         splitValuesHtml = '<div class="split-values">' +
           selectedCategories.map(cat => {
@@ -1540,6 +1560,39 @@ class HomeProjectLedgerPanel extends HTMLElement {
               '<span class="split-suffix">' + suffix + '</span>' +
             '</div>';
           }).join('') +
+        '</div>';
+        
+        // Calculate allocated and remaining
+        const allocated = selectedCategories.reduce((sum, cat) => sum + (parseFloat(splitValues[cat]) || 0), 0);
+        const maxValue = isPercent ? 100 : receiptTotal;
+        const remaining = maxValue - allocated;
+        const percentage = maxValue > 0 ? Math.min((allocated / maxValue) * 100, 100) : 0;
+        const isOver = remaining < -0.001; // Small tolerance for floating point
+        const isComplete = Math.abs(remaining) < 0.01;
+        const barClass = isOver ? 'error' : (isComplete ? 'ok' : 'warning');
+        
+        // Format numbers appropriately
+        const formatNum = (num) => {
+          const absNum = Math.abs(num);
+          return absNum % 1 === 0 ? absNum.toString() : absNum.toFixed(2).replace(/\.?0+$/, '');
+        };
+        
+        const allocatedDisplay = formatNum(allocated) + (isPercent ? '%' : '');
+        const remainingDisplay = formatNum(Math.abs(remaining)) + (isPercent ? '%' : '');
+        const maxDisplay = formatNum(maxValue) + (isPercent ? '%' : '');
+        
+        const remainingLabel = isOver 
+          ? this._t('splitOverAllocated') + ' ' + remainingDisplay
+          : this._t('splitRemaining') + ': ' + remainingDisplay;
+        
+        splitRemainingHtml = '<div class="split-remaining">' +
+          '<div class="split-remaining-bar">' +
+            '<div class="split-remaining-bar-fill ' + barClass + '" style="width: ' + Math.min(percentage, 100) + '%;"></div>' +
+          '</div>' +
+          '<div class="split-remaining-text">' +
+            '<span class="allocated">' + this._t('splitAllocated') + ': ' + allocatedDisplay + ' / ' + maxDisplay + '</span>' +
+            '<span class="remaining' + (isOver ? ' over' : '') + '">' + remainingLabel + '</span>' +
+          '</div>' +
         '</div>' +
         '<div class="split-error" id="split-error" style="display:none;"></div>';
       }
@@ -1551,6 +1604,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
           '<button type="button" class="split-type-btn' + (isAbsolute ? ' active' : '') + '" data-action="set-split-type" data-type="absolute">' + this._t('splitAbsolute') + '</button>' +
         '</div>' +
         splitValuesHtml +
+        splitRemainingHtml +
       '</div>';
     }
     
@@ -1812,8 +1866,17 @@ class HomeProjectLedgerPanel extends HTMLElement {
           this._state.categorySplitValues = {};
         }
         this._state.categorySplitValues[category] = value;
+        this._updateSplitRemainingIndicator();
       });
     });
+    
+    // Listen for receipt total changes to update split remaining
+    const receiptTotalInput = this._container.querySelector("#receipt-total");
+    if (receiptTotalInput) {
+      receiptTotalInput.addEventListener("input", () => {
+        this._updateSplitRemainingIndicator();
+      });
+    }
     
     // Listen for category budget input changes (project modal) with autocomplete
     this._container.querySelectorAll(".category-budget-name").forEach(input => {
@@ -1933,6 +1996,53 @@ class HomeProjectLedgerPanel extends HTMLElement {
         dropdown.style.display = 'none';
       }
     });
+  }
+
+  _updateSplitRemainingIndicator() {
+    // Update the remaining indicator without full re-render
+    const remainingBar = this._container.querySelector(".split-remaining-bar-fill");
+    const allocatedText = this._container.querySelector(".split-remaining-text .allocated");
+    const remainingText = this._container.querySelector(".split-remaining-text .remaining");
+    
+    if (!remainingBar || !allocatedText || !remainingText) return;
+    
+    const splitType = this._state.categorySplitType;
+    const splitValues = this._state.categorySplitValues || {};
+    const selectedCategories = this._state.selectedCategories || [];
+    const totalInput = this._container.querySelector("#receipt-total");
+    const receiptTotal = totalInput ? parseFloat(totalInput.value) || 0 : 0;
+    
+    const isPercent = splitType === 'percentage';
+    const maxValue = isPercent ? 100 : receiptTotal;
+    
+    // Calculate allocated amount
+    const allocated = selectedCategories.reduce((sum, cat) => sum + (parseFloat(splitValues[cat]) || 0), 0);
+    const remaining = maxValue - allocated;
+    const percentage = maxValue > 0 ? Math.min((allocated / maxValue) * 100, 100) : 0;
+    const isOver = remaining < -0.001;
+    const isComplete = Math.abs(remaining) < 0.01;
+    
+    // Format numbers
+    const formatNum = (num) => {
+      const absNum = Math.abs(num);
+      return absNum % 1 === 0 ? absNum.toString() : absNum.toFixed(2).replace(/\.?0+$/, '');
+    };
+    
+    const suffix = isPercent ? '%' : '';
+    const allocatedDisplay = formatNum(allocated) + suffix;
+    const remainingDisplay = formatNum(Math.abs(remaining)) + suffix;
+    const maxDisplay = formatNum(maxValue) + suffix;
+    
+    // Update bar
+    remainingBar.style.width = Math.min(percentage, 100) + '%';
+    remainingBar.className = 'split-remaining-bar-fill ' + (isOver ? 'error' : (isComplete ? 'ok' : 'warning'));
+    
+    // Update text
+    allocatedText.textContent = this._t('splitAllocated') + ': ' + allocatedDisplay + ' / ' + maxDisplay;
+    remainingText.textContent = isOver 
+      ? this._t('splitOverAllocated') + ' ' + remainingDisplay
+      : this._t('splitRemaining') + ': ' + remainingDisplay;
+    remainingText.className = 'remaining' + (isOver ? ' over' : '');
   }
 
   _setupCategoryAutocomplete(input, dropdown, allOptions) {
@@ -2336,8 +2446,37 @@ class HomeProjectLedgerPanel extends HTMLElement {
         }
         break;
       case "set-split-type":
-        this._state.categorySplitType = dataset.type;
-        if (dataset.type === 'equal') {
+        const newType = dataset.type;
+        const oldType = this._state.categorySplitType;
+        const currentValues = this._state.categorySplitValues || {};
+        
+        // Convert values when switching between percentage and absolute
+        if (newType !== 'equal' && oldType !== 'equal' && newType !== oldType) {
+          // Get the receipt total from the form
+          const totalInput = this._container.querySelector("#receipt-total");
+          const receiptTotal = totalInput ? parseFloat(totalInput.value) || 0 : 0;
+          
+          if (receiptTotal > 0 && Object.keys(currentValues).length > 0) {
+            const convertedValues = {};
+            
+            if (oldType === 'percentage' && newType === 'absolute') {
+              // Convert percentage to absolute: value% of total
+              for (const [cat, pct] of Object.entries(currentValues)) {
+                convertedValues[cat] = (pct / 100) * receiptTotal;
+              }
+            } else if (oldType === 'absolute' && newType === 'percentage') {
+              // Convert absolute to percentage: (value / total) * 100
+              for (const [cat, amt] of Object.entries(currentValues)) {
+                convertedValues[cat] = (amt / receiptTotal) * 100;
+              }
+            }
+            
+            this._state.categorySplitValues = convertedValues;
+          }
+        }
+        
+        this._state.categorySplitType = newType;
+        if (newType === 'equal') {
           this._state.categorySplitValues = {};
         }
         this._render();
