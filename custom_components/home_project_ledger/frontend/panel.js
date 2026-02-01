@@ -46,6 +46,9 @@ const TRANSLATIONS = {
     saveChanges: "Save Changes",
     cancel: "Cancel",
     delete: "Delete",
+    edit: "Edit",
+    noPhotos: "No photos",
+    noProject: "No project",
     closeProject: "Close Project",
     reopenProject: "Reopen Project",
     deleteProject: "Delete Project",
@@ -259,6 +262,9 @@ const TRANSLATIONS = {
     saveChanges: "Spara ändringar",
     cancel: "Avbryt",
     delete: "Radera",
+    edit: "Redigera",
+    noPhotos: "Inga foton",
+    noProject: "Inget projekt",
     closeProject: "Stäng projekt",
     reopenProject: "Öppna igen",
     deleteProject: "Radera projekt",
@@ -464,6 +470,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
       activeTab: "dashboard",
       dashboardPeriod: "allTime", // thisMonth, lastMonth, last3Months, last6Months, thisYear, allTime
       expandedProjectId: null,
+      expandedReceiptId: null, // For showing receipt detail inline
+      detailPhotoIndex: 0, // For selecting which photo to show in receipt detail
       openMenuId: null,
       modal: null,
       pendingPhotos: [], // For new photos being added to a receipt {dataUrl, file}
@@ -655,7 +663,11 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .add-btn:hover { opacity: 0.9; }
         .add-btn svg { width: 16px; height: 16px; }
         .receipt-list { display: flex; flex-direction: column; gap: 8px; }
-        .receipt-item { display: flex; align-items: center; padding: 12px; background-color: var(--card-background-color, #fff); border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .receipt-item-wrapper { margin-bottom: 4px; }
+        .receipt-item { display: flex; align-items: center; padding: 12px; background-color: var(--card-background-color, #fff); border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: pointer; transition: background-color 0.15s; }
+        .receipt-item:hover { background-color: var(--secondary-background-color, #f5f5f5); }
+        .receipt-chevron { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; color: var(--secondary-text-color, #757575); margin-right: 8px; flex-shrink: 0; }
+        .receipt-chevron svg { width: 20px; height: 20px; }
         .receipt-icon { width: 32px; height: 32px; border-radius: 50%; background-color: var(--secondary-background-color, #f5f5f5); display: flex; align-items: center; justify-content: center; margin-right: 12px; color: var(--secondary-text-color, #757575); }
         .receipt-icon svg { width: 18px; height: 18px; }
         .receipt-content { flex: 1; min-width: 0; }
@@ -790,10 +802,18 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .bar-chart-value { width: 80px; text-align: right; font-size: 13px; font-weight: 500; color: var(--primary-text-color, #212121); flex-shrink: 0; }
         
         /* Timeline Chart */
-        .timeline-chart { height: 200px; position: relative; }
+        .timeline-chart { height: 160px; position: relative; padding: 8px 0; }
+        @media (min-width: 600px) { .timeline-chart { height: 180px; } }
         .timeline-chart svg { width: 100%; height: 100%; }
-        .timeline-chart-labels { display: flex; justify-content: space-between; padding: 8px 0; font-size: 11px; color: var(--secondary-text-color, #757575); }
-        .timeline-chart-tooltip { position: absolute; background-color: var(--card-background-color, #fff); border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); padding: 8px 12px; font-size: 12px; pointer-events: none; z-index: 10; white-space: nowrap; }
+        .timeline-chart-area { fill: url(#timeline-gradient); opacity: 0.3; }
+        .timeline-chart-line { fill: none; stroke: var(--primary-color, #03a9f4); stroke-width: 2px; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+        .timeline-chart-dot { fill: var(--card-background-color, #fff); stroke: var(--primary-color, #03a9f4); stroke-width: 1.5px; vector-effect: non-scaling-stroke; cursor: pointer; }
+        .timeline-chart-dot:hover { fill: var(--primary-color, #03a9f4); }
+        .timeline-chart-grid-line { stroke: var(--divider-color, #e0e0e0); stroke-width: 1px; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+        .timeline-chart-labels { display: flex; justify-content: space-between; padding: 8px 4px 0 4px; font-size: 10px; color: var(--secondary-text-color, #757575); }
+        @media (min-width: 600px) { .timeline-chart-labels { font-size: 11px; } }
+        .timeline-chart-tooltip { position: absolute; background-color: var(--card-background-color, #fff); border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); padding: 8px 12px; font-size: 12px; pointer-events: none; z-index: 10; white-space: nowrap; transform: translate(-50%, -100%); margin-top: -10px; }
+        .timeline-chart-tooltip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: var(--card-background-color, #fff); }
         .timeline-chart-tooltip-value { font-weight: 500; color: var(--primary-text-color, #212121); }
         .timeline-chart-tooltip-label { color: var(--secondary-text-color, #757575); margin-top: 2px; }
         
@@ -913,6 +933,39 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .photo-indicator svg { width: 14px; height: 14px; }
         
         /* Photo viewer modal */
+        /* Receipt Detail View */
+        .receipt-detail { background: var(--card-background-color, #fff); border-radius: 12px; margin: 8px 0; padding: 16px; border: 1px solid var(--divider-color, #e0e0e0); animation: slideDown 0.2s ease; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .receipt-detail-layout { display: flex; gap: 20px; }
+        .receipt-detail-image { flex: 0 0 45%; max-width: 400px; min-width: 200px; }
+        .receipt-detail-image img { width: 100%; height: auto; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .receipt-detail-image-placeholder { width: 100%; aspect-ratio: 3/4; background: var(--secondary-background-color, #f5f5f5); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--secondary-text-color, #757575); }
+        .receipt-detail-image-placeholder svg { width: 48px; height: 48px; margin-bottom: 8px; opacity: 0.5; }
+        .receipt-detail-info { flex: 1; min-width: 0; }
+        .receipt-detail-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; gap: 12px; }
+        .receipt-detail-merchant { font-size: 20px; font-weight: 600; color: var(--primary-text-color, #212121); margin: 0; }
+        .receipt-detail-amount { font-size: 24px; font-weight: 700; color: var(--primary-color, #03a9f4); white-space: nowrap; }
+        .receipt-detail-meta { display: flex; flex-direction: column; gap: 12px; }
+        .receipt-detail-row { display: flex; align-items: center; gap: 8px; }
+        .receipt-detail-row svg { width: 20px; height: 20px; color: var(--secondary-text-color, #757575); flex-shrink: 0; }
+        .receipt-detail-label { font-size: 12px; color: var(--secondary-text-color, #757575); min-width: 80px; }
+        .receipt-detail-value { font-size: 14px; color: var(--primary-text-color, #212121); }
+        .receipt-detail-categories { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+        .receipt-detail-category { display: inline-flex; align-items: center; gap: 4px; background: var(--primary-color, #03a9f4); color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+        .receipt-detail-category-amount { opacity: 0.85; font-size: 11px; }
+        .receipt-detail-actions { display: flex; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--divider-color, #e0e0e0); }
+        .receipt-detail-photos { display: flex; gap: 8px; margin-top: 12px; overflow-x: auto; padding-bottom: 4px; }
+        .receipt-detail-photo-thumb { width: 60px; height: 60px; border-radius: 6px; overflow: hidden; cursor: pointer; flex-shrink: 0; border: 2px solid transparent; transition: border-color 0.2s; }
+        .receipt-detail-photo-thumb:hover { border-color: var(--primary-color, #03a9f4); }
+        .receipt-detail-photo-thumb.active { border-color: var(--primary-color, #03a9f4); }
+        .receipt-detail-photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        @media (max-width: 600px) {
+          .receipt-detail-layout { flex-direction: column; }
+          .receipt-detail-image { flex: none; max-width: 100%; min-width: 0; }
+          .receipt-detail-header { flex-direction: column; gap: 8px; }
+          .receipt-detail-amount { font-size: 20px; }
+        }
+        
         .photo-viewer { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 1100; }
         .photo-viewer-close { position: absolute; top: 16px; right: 16px; width: 40px; height: 40px; border-radius: 50%; border: none; background-color: rgba(255,255,255,0.2); color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .photo-viewer-close:hover { background-color: rgba(255,255,255,0.3); }
@@ -1029,18 +1082,35 @@ class HomeProjectLedgerPanel extends HTMLElement {
     });
     const merchants = Array.from(merchantMap.values()).sort((a, b) => b.total - a.total);
 
-    // Collect categories with totals
+    // Collect categories with totals (respecting split amounts)
     const categoryMap = new Map();
     allReceipts.forEach(r => {
       if (r.category_summary) {
-        r.category_summary.split(',').forEach(cat => {
-          const name = cat.trim();
-          if (name) {
-            const existing = categoryMap.get(name) || { name, total: 0, count: 0 };
-            existing.total += r.total || 0;
-            existing.count += 1;
-            categoryMap.set(name, existing);
+        const cats = r.category_summary.split(',').map(c => c.trim()).filter(c => c);
+        if (cats.length === 0) return;
+        
+        // Calculate amount per category based on split settings
+        cats.forEach(name => {
+          let amount = r.total || 0;
+          
+          if (cats.length > 1) {
+            // Multiple categories - check for split settings
+            if (r.category_split && r.category_split_type === 'absolute') {
+              // Absolute split - use the specified amount
+              amount = r.category_split[name] || 0;
+            } else if (r.category_split && r.category_split_type === 'percentage') {
+              // Percentage split - calculate from percentage
+              amount = (r.total || 0) * ((r.category_split[name] || 0) / 100);
+            } else {
+              // Equal split (default)
+              amount = (r.total || 0) / cats.length;
+            }
           }
+          
+          const existing = categoryMap.get(name) || { name, total: 0, count: 0 };
+          existing.total += amount;
+          existing.count += 1;
+          categoryMap.set(name, existing);
         });
       }
     });
@@ -1225,10 +1295,24 @@ class HomeProjectLedgerPanel extends HTMLElement {
     const map = new Map();
     receipts.forEach(r => {
       const cats = r.category_summary ? r.category_summary.split(',').map(c => c.trim()).filter(c => c) : [this._t('uncategorized')];
-      const amountPer = (r.total || 0) / cats.length;
       cats.forEach(cat => {
+        let amount;
+        if (cats.length > 1) {
+          // Multi-category: use split settings
+          if (r.category_split && r.category_split_type === 'absolute') {
+            amount = r.category_split[cat] || 0;
+          } else if (r.category_split && r.category_split_type === 'percentage') {
+            amount = (r.total || 0) * ((r.category_split[cat] || 0) / 100);
+          } else {
+            // Default: equal split
+            amount = (r.total || 0) / cats.length;
+          }
+        } else {
+          // Single category: full amount
+          amount = r.total || 0;
+        }
         const existing = map.get(cat) || 0;
-        map.set(cat, existing + amountPer);
+        map.set(cat, existing + amount);
       });
     });
     return Array.from(map.entries())
@@ -1352,24 +1436,43 @@ class HomeProjectLedgerPanel extends HTMLElement {
   
   _renderTimelineCard(data) {
     const maxValue = Math.max(...data.map(d => d.value), 1);
-    const height = 160;
-    const padding = 20;
-    const barWidth = (100 / data.length) - 1;
+    const width = 400;
+    const height = 150;
+    const paddingTop = 15;
+    const paddingBottom = 10;
+    const paddingX = 10;
+    const chartHeight = height - paddingTop - paddingBottom;
+    const chartWidth = width - paddingX * 2;
     
-    // Build SVG bars
-    let barsHtml = '';
-    data.forEach((d, i) => {
-      const barHeight = (d.value / maxValue) * (height - padding * 2);
-      const x = (i / data.length) * 100 + 0.5;
-      const y = height - padding - barHeight;
-      const color = CHART_COLORS[i % CHART_COLORS.length];
-      barsHtml += '<rect x="' + x + '%" y="' + y + '" width="' + barWidth + '%" height="' + barHeight + '" fill="' + color + '" rx="3" class="timeline-bar" data-value="' + this._formatCurrency(d.value) + '" data-label="' + d.label + '"/>';
+    // Build points for line and area
+    const points = data.map((d, i) => {
+      const x = paddingX + (i / (data.length - 1)) * chartWidth;
+      const y = paddingTop + chartHeight - (d.value / maxValue) * chartHeight;
+      return { x, y, value: d.value, label: d.label };
     });
     
-    // Labels
+    // Create line path
+    const linePath = points.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(2) + ',' + p.y.toFixed(2)).join(' ');
+    
+    // Create area path (closed polygon)
+    const areaPath = linePath + ' L' + points[points.length - 1].x.toFixed(2) + ',' + (height - paddingBottom) + ' L' + points[0].x.toFixed(2) + ',' + (height - paddingBottom) + ' Z';
+    
+    // Build SVG with gradient, grid lines, area, line, and dots
+    let gridLines = '';
+    for (let i = 1; i <= 3; i++) {
+      const y = paddingTop + (chartHeight / 4) * i;
+      gridLines += '<line class="timeline-chart-grid-line" x1="' + paddingX + '" y1="' + y.toFixed(2) + '" x2="' + (width - paddingX) + '" y2="' + y.toFixed(2) + '"/>';
+    }
+    
+    let dotsHtml = '';
+    points.forEach((p, i) => {
+      dotsHtml += '<circle class="timeline-chart-dot" cx="' + p.x.toFixed(2) + '" cy="' + p.y.toFixed(2) + '" r="3" data-index="' + i + '" data-value="' + this._formatCurrency(p.value) + '" data-label="' + p.label + '"/>';
+    });
+    
+    // Labels (show every other on mobile, all on desktop or if few items)
     let labelsHtml = '<div class="timeline-chart-labels">';
     data.forEach((d, i) => {
-      if (i % 2 === 0 || data.length <= 6) {
+      if (i % 3 === 0 || i === data.length - 1) {
         labelsHtml += '<span>' + d.label + '</span>';
       }
     });
@@ -1379,8 +1482,17 @@ class HomeProjectLedgerPanel extends HTMLElement {
       '<div class="dashboard-card-header"><h3>' + this._t('spendingTimeline') + '</h3></div>' +
       '<div class="dashboard-card-body">' +
         '<div class="timeline-chart">' +
-          '<svg viewBox="0 0 100 ' + height + '" preserveAspectRatio="none">' +
-            barsHtml +
+          '<svg viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="xMidYMid meet">' + +
+            '<defs>' +
+              '<linearGradient id="timeline-gradient" x1="0%" y1="0%" x2="0%" y2="100%">' +
+                '<stop offset="0%" style="stop-color:var(--primary-color, #03a9f4);stop-opacity:0.4"/>' +
+                '<stop offset="100%" style="stop-color:var(--primary-color, #03a9f4);stop-opacity:0.05"/>' +
+              '</linearGradient>' +
+            '</defs>' +
+            gridLines +
+            '<path class="timeline-chart-area" d="' + areaPath + '"/>' +
+            '<path class="timeline-chart-line" d="' + linePath + '"/>' +
+            dotsHtml +
           '</svg>' +
         '</div>' +
         labelsHtml +
@@ -1399,8 +1511,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
     }
     
     // Calculate donut segments
-    const radius = 70;
-    const strokeWidth = 25;
+    const radius = 60;
+    const strokeWidth = 20;
     const circumference = 2 * Math.PI * radius;
     let currentOffset = 0;
     
@@ -1597,8 +1709,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
 
   _renderReceiptsTab(allReceipts) {
     const searchIcon = '<svg class="search-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"/></svg>';
-    const receiptIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M3,22V3H21V22L18,20L15,22L12,20L9,22L6,20L3,22M17,9V7H7V9H17M15,13V11H7V13H15Z"/></svg>';
-    const cameraIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M4,4H7L9,2H15L17,4H20A2,2 0 0,1 22,6V18A2,2 0 0,1 20,20H4A2,2 0 0,1 2,18V6A2,2 0 0,1 4,4M12,7A5,5 0 0,0 7,12A5,5 0 0,0 12,17A5,5 0 0,0 17,12A5,5 0 0,0 12,7M12,9A3,3 0 0,1 15,12A3,3 0 0,1 12,15A3,3 0 0,1 9,12A3,3 0 0,1 12,9Z"/></svg>';
 
     // Sort receipts by date (newest first)
     const sortedReceipts = [...allReceipts].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
@@ -1609,20 +1719,10 @@ class HomeProjectLedgerPanel extends HTMLElement {
     if (sortedReceipts.length === 0) {
       receiptsList = '<div class="empty-state"><h3>' + this._t('noReceiptsYet') + '</h3><p>' + this._t('noReceiptsDesc') + '</p></div>';
     } else {
-      receiptsList = '<div class="project-list">' + sortedReceipts.map(r => {
-        const photoCount = (r.image_paths || []).length;
-        const photoIndicator = photoCount > 0 
-          ? '<span class="photo-indicator">' + cameraIcon + photoCount + '</span>'
-          : '';
-        return '<div class="list-item">' +
-          '<div class="list-item-icon">' + receiptIcon + '</div>' +
-          '<div class="list-item-content">' +
-            '<div class="list-item-title">' + this._escapeHtml(r.merchant || this._t('unknown')) + photoIndicator + '</div>' +
-            '<div class="list-item-subtitle">' + (r.date || this._t('noDate')) + ' · ' + this._escapeHtml(r.project_name) + (r.category_summary ? ' · ' + this._escapeHtml(r.category_summary) : '') + '</div>' +
-          '</div>' +
-          '<div class="list-item-value">' + this._formatCurrency(r.total || 0) + '</div>' +
-        '</div>';
-      }).join('') + '</div>';
+      // Use the same expandable receipt items as in project detail
+      receiptsList = '<div class="receipt-list">' + sortedReceipts.map(r => 
+        this._renderReceiptItem(r, r.project_id)
+      ).join('') + '</div>';
     }
 
     return '<div class="page-header"><h1>' + this._t('receipts') + '</h1></div>' +
@@ -2014,11 +2114,15 @@ class HomeProjectLedgerPanel extends HTMLElement {
   }
 
   _renderReceiptItem(receipt, projectId) {
+    const isExpanded = this._state.expandedReceiptId === receipt.receipt_id;
     const isMenuOpen = this._state.openMenuId === "receipt-" + receipt.receipt_id;
     const receiptIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M3,22V3H21V22L18,20L15,22L12,20L9,22L6,20L3,22M17,9V7H7V9H17M15,13V11H7V13H15Z"/></svg>';
     const menuIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z"/></svg>';
     const editIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/></svg>';
     const deleteIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/></svg>';
+    const chevronIcon = isExpanded
+      ? '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z"/></svg>'
+      : '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/></svg>';
 
     let menuHtml = '';
     if (isMenuOpen) {
@@ -2035,17 +2139,23 @@ class HomeProjectLedgerPanel extends HTMLElement {
       ? '<span class="photo-indicator"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M4,4H7L9,2H15L17,4H20A2,2 0 0,1 22,6V18A2,2 0 0,1 20,20H4A2,2 0 0,1 2,18V6A2,2 0 0,1 4,4M12,7A5,5 0 0,0 7,12A5,5 0 0,0 12,17A5,5 0 0,0 17,12A5,5 0 0,0 12,7M12,9A3,3 0 0,1 15,12A3,3 0 0,1 12,15A3,3 0 0,1 9,12A3,3 0 0,1 12,9Z"/></svg>' + photoCount + '</span>'
       : '';
 
-    return '<div class="receipt-item">' +
-      '<div class="receipt-icon">' + receiptIcon + '</div>' +
-      '<div class="receipt-content">' +
-        '<div class="receipt-merchant">' + this._escapeHtml(receipt.merchant || 'Unknown') + photoIndicator + '</div>' +
-        '<div class="receipt-date">' + (receipt.date || 'No date') + '</div>' +
+    const detailHtml = isExpanded ? this._renderReceiptDetailView(receipt, projectId) : '';
+
+    return '<div class="receipt-item-wrapper" data-receipt-id="' + receipt.receipt_id + '">' +
+      '<div class="receipt-item" data-action="toggle-receipt" data-receipt-id="' + receipt.receipt_id + '">' +
+        '<div class="receipt-chevron">' + chevronIcon + '</div>' +
+        '<div class="receipt-icon">' + receiptIcon + '</div>' +
+        '<div class="receipt-content">' +
+          '<div class="receipt-merchant">' + this._escapeHtml(receipt.merchant || 'Unknown') + photoIndicator + '</div>' +
+          '<div class="receipt-date">' + (receipt.date || 'No date') + '</div>' +
+        '</div>' +
+        '<div class="receipt-amount">' + this._formatCurrency(receipt.total || 0) + '</div>' +
+        '<div class="menu-container">' +
+          '<button class="menu-btn" data-menu-id="receipt-' + receipt.receipt_id + '">' + menuIcon + '</button>' +
+          menuHtml +
+        '</div>' +
       '</div>' +
-      '<div class="receipt-amount">' + this._formatCurrency(receipt.total || 0) + '</div>' +
-      '<div class="menu-container">' +
-        '<button class="menu-btn" data-menu-id="receipt-' + receipt.receipt_id + '">' + menuIcon + '</button>' +
-        menuHtml +
-      '</div>' +
+      detailHtml +
     '</div>';
   }
 
@@ -2057,9 +2167,89 @@ class HomeProjectLedgerPanel extends HTMLElement {
     return '';
   }
 
+  _renderReceiptDetailView(receipt, projectId) {
+    const imagePaths = receipt.image_paths || [];
+    const selectedPhotoIndex = this._state.detailPhotoIndex || 0;
+    const editIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/></svg>';
+    const deleteIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/></svg>';
+    const calendarIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19,19H5V8H19M16,1V3H8V1H6V3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3H18V1"/></svg>';
+    const storeIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M18.36,9L18.96,12H5.04L5.64,9H18.36M20,4H4V6H20V4M20,7H4L3,12V14H4V20H14V14H18V20H20V14H21V12L20,7M6,18V14H12V18H6Z"/></svg>';
+    const tagIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M5.5,7A1.5,1.5 0 0,1 4,5.5A1.5,1.5 0 0,1 5.5,4A1.5,1.5 0 0,1 7,5.5A1.5,1.5 0 0,1 5.5,7M21.41,11.58L12.41,2.58C12.05,2.22 11.55,2 11,2H4C2.89,2 2,2.89 2,4V11C2,11.55 2.22,12.05 2.59,12.41L11.58,21.41C11.95,21.77 12.45,22 13,22C13.55,22 14.05,21.77 14.41,21.41L21.41,14.41C21.78,14.05 22,13.55 22,13C22,12.44 21.77,11.94 21.41,11.58Z"/></svg>';
+    const folderIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z"/></svg>';
+    const imageIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M8.5,13.5L11,16.5L14.5,12L19,18H5M21,19V5C21,3.89 20.1,3 19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19Z"/></svg>';
+
+    // Main image or placeholder
+    let mainImageHtml = '';
+    if (imagePaths.length > 0) {
+      const currentImage = imagePaths[selectedPhotoIndex] || imagePaths[0];
+      mainImageHtml = '<img src="' + currentImage + '" alt="Receipt" data-action="view-receipt-photo" data-receipt-id="' + receipt.receipt_id + '" data-photo-index="' + selectedPhotoIndex + '">';
+      
+      // Photo thumbnails for navigation if multiple photos
+      if (imagePaths.length > 1) {
+        mainImageHtml += '<div class="receipt-detail-photos">' +
+          imagePaths.map((path, i) => 
+            '<div class="receipt-detail-photo-thumb' + (i === selectedPhotoIndex ? ' active' : '') + '" data-action="select-detail-photo" data-photo-index="' + i + '" data-receipt-id="' + receipt.receipt_id + '">' +
+              '<img src="' + path + '" alt="Photo ' + (i + 1) + '">' +
+            '</div>'
+          ).join('') +
+        '</div>';
+      }
+    } else {
+      mainImageHtml = '<div class="receipt-detail-image-placeholder">' + imageIcon + '<span>' + this._t('noPhotos') + '</span></div>';
+    }
+
+    // Categories with split amounts
+    let categoriesHtml = '';
+    const cats = receipt.category_summary ? receipt.category_summary.split(',').map(c => c.trim()).filter(c => c) : [];
+    if (cats.length > 0) {
+      categoriesHtml = '<div class="receipt-detail-categories">' +
+        cats.map(cat => {
+          let amountStr = '';
+          if (cats.length > 1) {
+            let amount;
+            if (receipt.category_split && receipt.category_split_type === 'absolute') {
+              amount = receipt.category_split[cat] || 0;
+              amountStr = '<span class="receipt-detail-category-amount">' + this._formatCurrency(amount) + '</span>';
+            } else if (receipt.category_split && receipt.category_split_type === 'percentage') {
+              const pct = receipt.category_split[cat] || 0;
+              amount = (receipt.total || 0) * (pct / 100);
+              amountStr = '<span class="receipt-detail-category-amount">' + pct + '% · ' + this._formatCurrency(amount) + '</span>';
+            } else {
+              amount = (receipt.total || 0) / cats.length;
+              amountStr = '<span class="receipt-detail-category-amount">' + this._formatCurrency(amount) + '</span>';
+            }
+          }
+          return '<span class="receipt-detail-category">' + this._escapeHtml(cat) + (amountStr ? ' ' + amountStr : '') + '</span>';
+        }).join('') +
+      '</div>';
+    }
+
+    return '<div class="receipt-detail">' +
+      '<div class="receipt-detail-layout">' +
+        '<div class="receipt-detail-image">' + mainImageHtml + '</div>' +
+        '<div class="receipt-detail-info">' +
+          '<div class="receipt-detail-header">' +
+            '<h3 class="receipt-detail-merchant">' + this._escapeHtml(receipt.merchant || this._t('unknown')) + '</h3>' +
+            '<div class="receipt-detail-amount">' + this._formatCurrency(receipt.total || 0) + '</div>' +
+          '</div>' +
+          '<div class="receipt-detail-meta">' +
+            '<div class="receipt-detail-row">' + calendarIcon + '<span class="receipt-detail-value">' + (receipt.date || this._t('noDate')) + '</span></div>' +
+            '<div class="receipt-detail-row">' + folderIcon + '<span class="receipt-detail-value">' + this._escapeHtml(receipt.project_name || this._t('noProject')) + '</span></div>' +
+            (cats.length > 0 ? '<div class="receipt-detail-row">' + tagIcon + categoriesHtml + '</div>' : '') +
+          '</div>' +
+          '<div class="receipt-detail-actions">' +
+            '<button class="btn btn-secondary" data-action="edit-receipt" data-receipt-id="' + receipt.receipt_id + '" data-project-id="' + projectId + '">' + editIcon + ' ' + this._t('edit') + '</button>' +
+            '<button class="btn btn-danger" data-action="delete-receipt" data-receipt-id="' + receipt.receipt_id + '" data-merchant="' + this._escapeHtml(receipt.merchant || this._t('thisReceipt')) + '">' + deleteIcon + ' ' + this._t('delete') + '</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
   _renderPhotoViewer() {
-    if (this._state.photoViewerIndex < 0 || !this._state.modal) return '';
+    if (this._state.photoViewerIndex < 0) return '';
     
+    // Support both modal-based and standalone photo viewing
     const data = this._state.modal?.data || {};
     const existingImages = data.image_paths || [];
     const pendingPhotos = this._state.pendingPhotos || [];
@@ -3009,8 +3199,47 @@ class HomeProjectLedgerPanel extends HTMLElement {
           this._render();
         }
         break;
+      case "toggle-receipt":
+        const receiptIdToToggle = dataset.receiptId;
+        if (this._state.expandedReceiptId === receiptIdToToggle) {
+          this._state.expandedReceiptId = null;
+          this._state.detailPhotoIndex = 0;
+        } else {
+          this._state.expandedReceiptId = receiptIdToToggle;
+          this._state.detailPhotoIndex = 0;
+        }
+        this._state.openMenuId = null;
+        this._render();
+        break;
+      case "select-detail-photo":
+        this._state.detailPhotoIndex = parseInt(dataset.photoIndex, 10) || 0;
+        this._render();
+        break;
+      case "view-receipt-photo":
+        // Open fullscreen photo viewer for receipt detail photos
+        const receiptPhotoIndex = parseInt(dataset.photoIndex, 10) || 0;
+        const receiptIdForPhoto = dataset.receiptId;
+        // Find the receipt to get its photos
+        let receiptForPhoto = null;
+        for (const p of this._state.projects) {
+          const found = (p.receipts || []).find(r => r.receipt_id === receiptIdForPhoto);
+          if (found) {
+            receiptForPhoto = found;
+            break;
+          }
+        }
+        if (receiptForPhoto) {
+          // Create a temporary modal state for the photo viewer
+          this._state.modal = { type: 'photo-viewer-only', data: { image_paths: receiptForPhoto.image_paths || [] } };
+          this._state.photoViewerIndex = receiptPhotoIndex;
+          this._render();
+        }
+        break;
       case "close-photo-viewer":
         this._state.photoViewerIndex = -1;
+        if (this._state.modal?.type === 'photo-viewer-only') {
+          this._state.modal = null;
+        }
         this._render();
         break;
       case "photo-viewer-prev":
