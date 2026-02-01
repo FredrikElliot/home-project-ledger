@@ -37,7 +37,6 @@ PANEL_URL: Final = "home-project-ledger"
 PANEL_TITLE: Final = "Project Ledger"
 PANEL_ICON: Final = "mdi:notebook-edit"
 
-<<<<<<< Updated upstream
 # Cloud Storage Provider Types
 STORAGE_PROVIDER_LOCAL: Final = "local"
 STORAGE_PROVIDER_GOOGLE_DRIVE: Final = "google_drive"
@@ -68,12 +67,3 @@ ONEDRIVE_TOKEN_URL: Final = "https://login.microsoftonline.com/common/oauth2/v2.
 # Config entry data keys
 CONF_STORAGE_PROVIDER: Final = "storage_provider"
 CONF_TOKEN: Final = "token"
-=======
-# Cloud Storage
-CONF_GOOGLE_CLIENT_ID: Final = "google_client_id"
-CONF_GOOGLE_CLIENT_SECRET: Final = "google_client_secret"
-CONF_ONEDRIVE_CLIENT_ID: Final = "onedrive_client_id"
-CONF_ONEDRIVE_CLIENT_SECRET: Final = "onedrive_client_secret"
-CONF_DROPBOX_APP_KEY: Final = "dropbox_app_key"
-CONF_DROPBOX_APP_SECRET: Final = "dropbox_app_secret"
->>>>>>> Stashed changes

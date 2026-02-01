@@ -80,13 +80,9 @@ class StorageConfig:
 class StorageStatus:
     """Status of a storage provider."""
     connected: bool = False
-<<<<<<< Updated upstream
     authenticated: bool = False
     provider_type: StorageProviderType = StorageProviderType.LOCAL
     provider_name: str = "Local Storage"
-=======
-    provider: StorageProviderType = StorageProviderType.LOCAL
->>>>>>> Stashed changes
     user_email: Optional[str] = None
     user_name: Optional[str] = None
     storage_used: Optional[int] = None  # bytes
@@ -98,13 +94,9 @@ class StorageStatus:
         """Convert to dictionary."""
         return {
             "connected": self.connected,
-<<<<<<< Updated upstream
             "authenticated": self.authenticated,
             "provider_type": self.provider_type.value,
             "provider_name": self.provider_name,
-=======
-            "provider": self.provider.value,
->>>>>>> Stashed changes
             "user_email": self.user_email,
             "user_name": self.user_name,
             "storage_used": self.storage_used,
@@ -154,7 +146,7 @@ class CloudStorageProvider(ABC):
     async def delete_image(self, image_path: str) -> bool:
         """Delete an image from storage.
         
-        Returns True if successful.
+        Returns True if deletion was successful.
         """
         pass
     
@@ -162,31 +154,38 @@ class CloudStorageProvider(ABC):
     async def get_image(self, image_path: str) -> Optional[bytes]:
         """Retrieve an image from storage.
         
-        Returns the image data or None if not found.
+        Returns the image bytes or None if not found.
+        """
+        pass
+    
+    @abstractmethod
+    async def get_image_url(self, image_path: str) -> Optional[str]:
+        """Get a web-accessible URL for an image.
+        
+        Returns None if not available.
         """
         pass
     
     @abstractmethod
     async def get_status(self) -> StorageStatus:
-        """Get the current status of the storage provider."""
+        """Get the current status of this storage provider."""
         pass
     
     @abstractmethod
     async def test_connection(self) -> bool:
-        """Test if the connection to the provider is working."""
+        """Test if the connection to the storage provider is working."""
         pass
     
-    async def ensure_folder_exists(self) -> bool:
-        """Ensure the target folder exists in cloud storage.
-        
-        Returns True if successful.
-        """
-        return True  # Override in providers that need this
-    
+    @abstractmethod
     def is_configured(self) -> bool:
         """Check if the provider is properly configured."""
-        return True  # Override in subclasses
+        pass
     
+    @abstractmethod
     def needs_reauth(self) -> bool:
         """Check if re-authentication is needed."""
-        return False  # Override in OAuth providers
+        pass
+    
+    async def disconnect(self) -> None:
+        """Clean up resources and disconnect."""
+        pass

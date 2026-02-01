@@ -2,16 +2,11 @@
 from __future__ import annotations
 
 import logging
-<<<<<<< Updated upstream
 from typing import Any, Optional, TYPE_CHECKING
-=======
-from typing import Any, Optional
->>>>>>> Stashed changes
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
-<<<<<<< Updated upstream
 from .const import (
     DOMAIN,
     STORAGE_KEY_CONFIG,
@@ -20,9 +15,6 @@ from .const import (
     STORAGE_PROVIDER_DROPBOX,
     STORAGE_PROVIDER_ONEDRIVE,
 )
-=======
-from .const import DOMAIN, STORAGE_KEY_CONFIG
->>>>>>> Stashed changes
 from .cloud_storage.base import (
     CloudStorageProvider,
     StorageConfig,
@@ -32,12 +24,9 @@ from .cloud_storage.base import (
 from .cloud_storage.local import LocalStorageProvider
 from .cloud_storage.google_drive import GoogleDriveProvider
 
-<<<<<<< Updated upstream
 if TYPE_CHECKING:
     from homeassistant.helpers.config_entry_oauth2_flow import OAuth2Session
 
-=======
->>>>>>> Stashed changes
 _LOGGER = logging.getLogger(__name__)
 
 STORAGE_VERSION = 1
@@ -49,17 +38,8 @@ class CloudStorageManager:
     def __init__(
         self,
         hass: HomeAssistant,
-<<<<<<< Updated upstream
         storage_provider: str = STORAGE_PROVIDER_LOCAL,
         oauth_session: Optional["OAuth2Session"] = None,
-=======
-        google_client_id: Optional[str] = None,
-        google_client_secret: Optional[str] = None,
-        onedrive_client_id: Optional[str] = None,
-        onedrive_client_secret: Optional[str] = None,
-        dropbox_app_key: Optional[str] = None,
-        dropbox_app_secret: Optional[str] = None,
->>>>>>> Stashed changes
     ):
         """Initialize the cloud storage manager."""
         self.hass = hass
@@ -67,20 +47,10 @@ class CloudStorageManager:
         self._config: StorageConfig = StorageConfig()
         self._provider: Optional[CloudStorageProvider] = None
         
-<<<<<<< Updated upstream
         # Storage provider type from config entry
         self._storage_provider = storage_provider
         # OAuth session for cloud providers
         self._oauth_session = oauth_session
-=======
-        # OAuth credentials for each provider
-        self._google_client_id = google_client_id
-        self._google_client_secret = google_client_secret
-        self._onedrive_client_id = onedrive_client_id
-        self._onedrive_client_secret = onedrive_client_secret
-        self._dropbox_app_key = dropbox_app_key
-        self._dropbox_app_secret = dropbox_app_secret
->>>>>>> Stashed changes
     
     async def async_load(self) -> None:
         """Load configuration from storage."""
@@ -90,7 +60,6 @@ class CloudStorageManager:
         else:
             self._config = StorageConfig()
         
-<<<<<<< Updated upstream
         # Set provider type based on config entry
         if self._storage_provider == STORAGE_PROVIDER_GOOGLE_DRIVE:
             self._config.provider = StorageProviderType.GOOGLE_DRIVE
@@ -101,8 +70,6 @@ class CloudStorageManager:
         else:
             self._config.provider = StorageProviderType.LOCAL
         
-=======
->>>>>>> Stashed changes
         # Initialize the provider
         await self._init_provider()
         _LOGGER.info("Loaded cloud storage config: provider=%s", self._config.provider.value)
@@ -119,20 +86,11 @@ class CloudStorageManager:
         
         provider_type = self._config.provider
         
-<<<<<<< Updated upstream
         if provider_type == StorageProviderType.GOOGLE_DRIVE and self._oauth_session:
             self._provider = GoogleDriveProvider(
                 self._config,
                 self.hass,
                 oauth_session=self._oauth_session,
-=======
-        if provider_type == StorageProviderType.GOOGLE_DRIVE:
-            self._provider = GoogleDriveProvider(
-                self._config,
-                self.hass,
-                client_id=self._google_client_id,
-                client_secret=self._google_client_secret,
->>>>>>> Stashed changes
             )
         elif provider_type == StorageProviderType.ONEDRIVE:
             # TODO: Implement OneDrive provider
@@ -163,12 +121,9 @@ class CloudStorageManager:
     
     def get_available_providers(self) -> list[dict[str, Any]]:
         """Get list of available storage providers with configuration status."""
-<<<<<<< Updated upstream
         # Check if we have an OAuth session (means cloud is configured)
         has_oauth = self._oauth_session is not None
         
-=======
->>>>>>> Stashed changes
         return [
             {
                 "type": StorageProviderType.LOCAL.value,
@@ -180,33 +135,21 @@ class CloudStorageManager:
             {
                 "type": StorageProviderType.GOOGLE_DRIVE.value,
                 "name": "Google Drive",
-<<<<<<< Updated upstream
                 "configured": has_oauth and self._storage_provider == STORAGE_PROVIDER_GOOGLE_DRIVE,
-=======
-                "configured": bool(self._google_client_id and self._google_client_secret),
->>>>>>> Stashed changes
                 "available": True,
                 "description": "Store images in your Google Drive account",
             },
             {
                 "type": StorageProviderType.ONEDRIVE.value,
                 "name": "OneDrive",
-<<<<<<< Updated upstream
                 "configured": has_oauth and self._storage_provider == STORAGE_PROVIDER_ONEDRIVE,
-=======
-                "configured": bool(self._onedrive_client_id and self._onedrive_client_secret),
->>>>>>> Stashed changes
                 "available": False,  # Not yet implemented
                 "description": "Store images in your Microsoft OneDrive account",
             },
             {
                 "type": StorageProviderType.DROPBOX.value,
                 "name": "Dropbox",
-<<<<<<< Updated upstream
                 "configured": has_oauth and self._storage_provider == STORAGE_PROVIDER_DROPBOX,
-=======
-                "configured": bool(self._dropbox_app_key and self._dropbox_app_secret),
->>>>>>> Stashed changes
                 "available": False,  # Not yet implemented
                 "description": "Store images in your Dropbox account",
             },
@@ -275,17 +218,8 @@ class CloudStorageManager:
             if isinstance(self.provider, GoogleDriveProvider):
                 return await self.provider.delete_image(image_path)
             else:
-<<<<<<< Updated upstream
                 _LOGGER.warning("Cannot delete Google Drive image: no Google Drive provider configured")
                 return False
-=======
-                # Create temporary provider to delete
-                temp_provider = GoogleDriveProvider(
-                    self._config, self.hass,
-                    self._google_client_id, self._google_client_secret
-                )
-                return await temp_provider.delete_image(image_path)
->>>>>>> Stashed changes
         elif image_path.startswith("/local/"):
             local_provider = LocalStorageProvider(self._config, self.hass)
             return await local_provider.delete_image(image_path)
@@ -298,16 +232,8 @@ class CloudStorageManager:
             if isinstance(self.provider, GoogleDriveProvider):
                 return await self.provider.get_image(image_path)
             else:
-<<<<<<< Updated upstream
                 _LOGGER.warning("Cannot get Google Drive image: no Google Drive provider configured")
                 return None
-=======
-                temp_provider = GoogleDriveProvider(
-                    self._config, self.hass,
-                    self._google_client_id, self._google_client_secret
-                )
-                return await temp_provider.get_image(image_path)
->>>>>>> Stashed changes
         elif image_path.startswith("/local/"):
             local_provider = LocalStorageProvider(self._config, self.hass)
             return await local_provider.get_image(image_path)

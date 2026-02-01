@@ -158,13 +158,9 @@ const TRANSLATIONS = {
     webdavUsername: "Username",
     webdavPassword: "Password",
     saveWebdav: "Save WebDAV Settings",
-<<<<<<< Updated upstream
     cloudStorageInfo: "Cloud Storage Configuration",
     cloudStorageInfoDesc: "To use cloud storage, remove this integration and re-add it, selecting your preferred cloud provider during setup.",
     openIntegrationSettings: "Open Integration Settings",
-=======
-    configureInYaml: "Configure API credentials in configuration.yaml to enable this provider",
->>>>>>> Stashed changes
     currentStorage: "Current Storage",
     switchProvider: "Switch Provider",
     failedStorageConfig: "Failed to configure storage",
@@ -321,13 +317,9 @@ const TRANSLATIONS = {
     webdavUsername: "Användarnamn",
     webdavPassword: "Lösenord",
     saveWebdav: "Spara WebDAV-inställningar",
-<<<<<<< Updated upstream
     cloudStorageInfo: "Molnlagringskonfiguration",
     cloudStorageInfoDesc: "För att använda molnlagring, ta bort denna integration och lägg till den igen, välj önskad molnleverantör under installationen.",
     openIntegrationSettings: "Öppna integrationsinställningar",
-=======
-    configureInYaml: "Konfigurera API-uppgifter i configuration.yaml för att aktivera denna leverantör",
->>>>>>> Stashed changes
     currentStorage: "Aktuell lagring",
     switchProvider: "Byt leverantör",
     failedStorageConfig: "Kunde inte konfigurera lagring",
@@ -1067,16 +1059,11 @@ class HomeProjectLedgerPanel extends HTMLElement {
       } else if (!isAvailable) {
         providerStatus = '<span class="provider-badge unavailable">' + this._t('notAvailableYet') + '</span>';
       } else if (!isConfigured && provider.type !== 'local' && provider.type !== 'webdav') {
-<<<<<<< Updated upstream
         // Cloud provider not configured - show informational badge only
         // User needs to remove and re-add the integration to use cloud storage
         providerStatus = '<span class="provider-badge not-configured">' + this._t('notConfigured') + '</span>';
       } else if (!isActive && provider.type === 'local') {
         // Can switch to local without re-adding
-=======
-        providerStatus = '<span class="provider-badge not-configured">' + this._t('notConfigured') + '</span>';
-      } else if (!isActive) {
->>>>>>> Stashed changes
         actionBtn = '<button class="secondary-btn small" data-action="select-provider" data-provider="' + provider.type + '">' + this._t('connect') + '</button>';
       }
       
@@ -1102,7 +1089,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
 
     providersSection += '</div></div></div>';
 
-<<<<<<< Updated upstream
     // Info card about cloud storage configuration
     const infoIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M13,9H11V7H13M13,17H11V11H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg>';
     let infoCard = '<div class="card settings-card info-card">' +
@@ -1114,16 +1100,11 @@ class HomeProjectLedgerPanel extends HTMLElement {
       '</div>' +
     '</div>';
 
-=======
->>>>>>> Stashed changes
     return '<div class="page-header"><h1>' + this._t('settings') + '</h1></div>' +
       currentStorageCard +
       authSection +
       providersSection +
-<<<<<<< Updated upstream
       infoCard +
-=======
->>>>>>> Stashed changes
       this._renderSettingsStyles();
   }
 
@@ -1169,13 +1150,10 @@ class HomeProjectLedgerPanel extends HTMLElement {
       '.auth-code-input { flex: 1; }' +
       '.provider-item.active .secondary-btn { border-color: rgba(255,255,255,0.3); color: white; }' +
       '.provider-item.active .secondary-btn:hover { background: rgba(255,255,255,0.1); }' +
-<<<<<<< Updated upstream
       '.info-card { background: var(--secondary-background-color); }' +
       '.info-row { display: flex; align-items: flex-start; gap: 12px; }' +
       '.info-icon { color: var(--primary-color); flex-shrink: 0; }' +
       '.info-icon svg { width: 24px; height: 24px; }' +
-=======
->>>>>>> Stashed changes
     '</style>';
   }
 
@@ -1837,13 +1815,10 @@ class HomeProjectLedgerPanel extends HTMLElement {
       case "submit-auth-code":
         this._submitAuthCode();
         break;
-<<<<<<< Updated upstream
       case "open-integration-options":
         // Navigate to the integration options page in Home Assistant
         this._openIntegrationOptions();
         break;
-=======
->>>>>>> Stashed changes
       case "confirm-action":
         if (this._state.modal?.data?.confirmAction) {
           this._state.modal.data.confirmAction();
@@ -2121,7 +2096,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
     if (!this._hass) return;
     
     try {
-<<<<<<< Updated upstream
       // Use HTTP API to get storage status
       const response = await fetch('/api/home_project_ledger/storage/status', {
         headers: {
@@ -2134,24 +2108,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
       } else {
         throw new Error('Failed to fetch storage status');
       }
-=======
-      const response = await this._hass.callService(DOMAIN, "get_storage_status", {});
-      // Service response is returned via hass.callWS or service call return
-      // For now, assume the response is in the service_response
-      this._state.storageStatus = response?.response || {
-        provider: "local",
-        provider_name: "Local Storage",
-        connected: true,
-        authenticated: true,
-        providers: [
-          { type: "local", name: "Local Storage", configured: true, available: true },
-          { type: "google_drive", name: "Google Drive", configured: false, available: true },
-          { type: "onedrive", name: "OneDrive", configured: false, available: false },
-          { type: "dropbox", name: "Dropbox", configured: false, available: false },
-          { type: "webdav", name: "WebDAV", configured: true, available: false },
-        ],
-      };
->>>>>>> Stashed changes
       this._render();
     } catch (error) {
       console.error("Error loading storage status:", error);
@@ -2177,7 +2133,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
     if (!this._hass) return;
     
     try {
-<<<<<<< Updated upstream
       const response = await fetch('/api/home_project_ledger/storage/config', {
         method: 'POST',
         headers: {
@@ -2191,11 +2146,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
         throw new Error('Failed to select provider');
       }
       
-=======
-      await this._hass.callService(DOMAIN, "set_storage_config", {
-        provider: providerType,
-      });
->>>>>>> Stashed changes
       // Reload status to get auth URL if needed
       await this._loadStorageStatus();
     } catch (error) {
@@ -2208,7 +2158,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
     if (!this._hass) return;
     
     try {
-<<<<<<< Updated upstream
       const response = await fetch('/api/home_project_ledger/storage/config', {
         method: 'POST',
         headers: {
@@ -2222,11 +2171,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
         throw new Error('Failed to disconnect storage');
       }
       
-=======
-      await this._hass.callService(DOMAIN, "set_storage_config", {
-        disconnect: true,
-      });
->>>>>>> Stashed changes
       await this._loadStorageStatus();
     } catch (error) {
       console.error("Error disconnecting storage:", error);
@@ -2245,7 +2189,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
     }
     
     try {
-<<<<<<< Updated upstream
       const response = await fetch('/api/home_project_ledger/storage/config', {
         method: 'POST',
         headers: {
@@ -2260,11 +2203,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
         throw new Error(data.error || 'Authentication failed');
       }
       
-=======
-      await this._hass.callService(DOMAIN, "set_storage_config", {
-        auth_code: authCode,
-      });
->>>>>>> Stashed changes
       this._state.authCodeInput = "";
       await this._loadStorageStatus();
     } catch (error) {

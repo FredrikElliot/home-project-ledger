@@ -92,13 +92,9 @@ class LocalStorageProvider(CloudStorageProvider):
         """Get the current status of local storage."""
         status = StorageStatus(
             connected=True,
-<<<<<<< Updated upstream
             authenticated=True,
             provider_type=StorageProviderType.LOCAL,
             provider_name="Local Storage",
-=======
-            provider=StorageProviderType.LOCAL,
->>>>>>> Stashed changes
         )
         
         try:
@@ -117,10 +113,6 @@ class LocalStorageProvider(CloudStorageProvider):
             used, count = await self.hass.async_add_executor_job(_get_stats)
             status.storage_used = used
             status.image_count = count
-<<<<<<< Updated upstream
-=======
-            status.user_name = "Local Storage"
->>>>>>> Stashed changes
             
         except Exception as e:
             _LOGGER.error("Failed to get local storage stats: %s", e)
@@ -139,3 +131,16 @@ class LocalStorageProvider(CloudStorageProvider):
     def is_configured(self) -> bool:
         """Local storage is always configured."""
         return True
+    
+    def needs_reauth(self) -> bool:
+        """Local storage never needs re-authentication."""
+        return False
+    
+    async def get_image_url(self, image_path: str) -> Optional[str]:
+        """Get a web-accessible URL for an image.
+        
+        For local storage, the image_path is already a web-accessible URL.
+        """
+        if image_path.startswith("/local/"):
+            return image_path
+        return None
