@@ -32,6 +32,10 @@ async def async_setup_entry(
 
     currency = entry.data.get("currency", DEFAULT_CURRENCY)
 
+    # Track which entities we've already created
+    created_project_ids: set[str] = set()
+    created_area_ids: set[str] = set()
+
     # Always create total house spend sensor
     sensors = [
         TotalHouseSpendSensor(coordinator, storage, currency),
@@ -56,12 +60,56 @@ async def async_setup_entry(
         area = area_registry.async_get_area(area_id)
         if area:
             sensors.append(AreaSpendSensor(coordinator, storage, area.id, area.name, currency))
+            created_area_ids.add(area_id)
 
     # Create sensors for each project
     for project in storage.get_all_projects():
         sensors.append(ProjectSpendSensor(coordinator, storage, project.project_id, project.name, currency))
+        created_project_ids.add(project.project_id)
 
     async_add_entities(sensors, True)
+
+    # Listen for coordinator updates to add new entities dynamically
+    @callback
+    def _async_check_new_entities() -> None:
+        """Check if new projects/areas need sensors."""
+        new_sensors = []
+
+        # Check for new projects
+        for project in storage.get_all_projects():
+            if project.project_id not in created_project_ids:
+                new_sensors.append(
+                    ProjectSpendSensor(coordinator, storage, project.project_id, project.name, currency)
+                )
+                created_project_ids.add(project.project_id)
+                _LOGGER.debug("Adding sensor for new project: %s", project.name)
+
+        # Check for new areas
+        for project in storage.get_all_projects():
+            if project.area_id and project.area_id not in created_area_ids:
+                area = area_registry.async_get_area(project.area_id)
+                if area:
+                    new_sensors.append(
+                        AreaSpendSensor(coordinator, storage, area.id, area.name, currency)
+                    )
+                    created_area_ids.add(project.area_id)
+                    _LOGGER.debug("Adding sensor for new area: %s", area.name)
+
+        for receipt in storage.get_all_receipts():
+            if receipt.area_id and receipt.area_id not in created_area_ids:
+                area = area_registry.async_get_area(receipt.area_id)
+                if area:
+                    new_sensors.append(
+                        AreaSpendSensor(coordinator, storage, area.id, area.name, currency)
+                    )
+                    created_area_ids.add(receipt.area_id)
+                    _LOGGER.debug("Adding sensor for new area: %s", area.name)
+
+        if new_sensors:
+            async_add_entities(new_sensors, True)
+
+    # Register the listener
+    coordinator.async_add_listener(_async_check_new_entities)
 
 
 class ProjectLedgerSensorBase(CoordinatorEntity, SensorEntity):
