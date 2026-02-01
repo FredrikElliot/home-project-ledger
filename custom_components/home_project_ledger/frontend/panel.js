@@ -6,10 +6,21 @@
 
 const DOMAIN = "home_project_ledger";
 
+// Color palette for charts (inspired by HA Energy dashboard)
+const CHART_COLORS = [
+  '#4fc3f7', '#29b6f6', '#03a9f4', '#039be5', '#0288d1', // Blues
+  '#81c784', '#66bb6a', '#4caf50', '#43a047', '#388e3c', // Greens
+  '#ffb74d', '#ffa726', '#ff9800', '#fb8c00', '#f57c00', // Oranges
+  '#f06292', '#ec407a', '#e91e63', '#d81b60', '#c2185b', // Pinks
+  '#ba68c8', '#ab47bc', '#9c27b0', '#8e24aa', '#7b1fa2', // Purples
+  '#7986cb', '#5c6bc0', '#3f51b5', '#3949ab', '#303f9f', // Indigos
+];
+
 // Translations
 const TRANSLATIONS = {
   en: {
     // Navigation
+    dashboard: "Dashboard",
     projects: "Projects",
     receipts: "Receipts",
     merchants: "Merchants",
@@ -86,6 +97,35 @@ const TRANSLATIONS = {
     splitRemaining: "Remaining",
     splitAllocated: "Allocated",
     splitOverAllocated: "Over-allocated by",
+    
+    // Dashboard
+    spendingOverview: "Spending Overview",
+    spendByCategory: "Spend by Category",
+    spendByMerchant: "Spend by Merchant",
+    spendByProject: "Spend by Project",
+    budgetOverview: "Budget Overview",
+    spendingTimeline: "Spending Timeline",
+    topMerchants: "Top Merchants",
+    topCategories: "Top Categories",
+    recentActivity: "Recent Activity",
+    monthlySpending: "Monthly Spending",
+    thisMonth: "This Month",
+    lastMonth: "Last Month",
+    last3Months: "Last 3 Months",
+    last6Months: "Last 6 Months",
+    thisYear: "This Year",
+    allTime: "All Time",
+    noDataYet: "No data yet",
+    noDataYetDesc: "Start adding receipts to see your spending statistics here.",
+    averagePerReceipt: "Avg. per Receipt",
+    averageMonthly: "Avg. Monthly",
+    projectsWithBudget: "Projects with Budget",
+    onTrack: "On Track",
+    atRisk: "At Risk",
+    overBudgetCount: "Over Budget",
+    budgetHealth: "Budget Health",
+    uncategorized: "Uncategorized",
+    other: "Other",
     
     // Hints
     existingMerchants: "{count} existing merchants",
@@ -193,6 +233,7 @@ const TRANSLATIONS = {
   },
   sv: {
     // Navigation
+    dashboard: "Dashboard",
     projects: "Projekt",
     receipts: "Kvitton",
     merchants: "Butiker",
@@ -269,6 +310,35 @@ const TRANSLATIONS = {
     splitRemaining: "Återstår",
     splitAllocated: "Fördelat",
     splitOverAllocated: "Överfördelat med",
+    
+    // Dashboard
+    spendingOverview: "Utgiftsöversikt",
+    spendByCategory: "Utgifter per kategori",
+    spendByMerchant: "Utgifter per butik",
+    spendByProject: "Utgifter per projekt",
+    budgetOverview: "Budgetöversikt",
+    spendingTimeline: "Utgifter över tid",
+    topMerchants: "Topp butiker",
+    topCategories: "Topp kategorier",
+    recentActivity: "Senaste aktivitet",
+    monthlySpending: "Månadsutgifter",
+    thisMonth: "Denna månad",
+    lastMonth: "Förra månaden",
+    last3Months: "Senaste 3 månaderna",
+    last6Months: "Senaste 6 månaderna",
+    thisYear: "I år",
+    allTime: "All tid",
+    noDataYet: "Ingen data än",
+    noDataYetDesc: "Börja lägga till kvitton för att se din utgiftsstatistik här.",
+    averagePerReceipt: "Snitt per kvitto",
+    averageMonthly: "Snitt per månad",
+    projectsWithBudget: "Projekt med budget",
+    onTrack: "På spår",
+    atRisk: "Risk",
+    overBudgetCount: "Över budget",
+    budgetHealth: "Budgethälsa",
+    uncategorized: "Okategoriserat",
+    other: "Övrigt",
     
     // Hints
     existingMerchants: "{count} befintliga butiker",
@@ -391,7 +461,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
       totalSpend: 0,
       searchQuery: "",
       activeFilter: "all",
-      activeTab: "projects",
+      activeTab: "dashboard",
+      dashboardPeriod: "allTime", // thisMonth, lastMonth, last3Months, last6Months, thisYear, allTime
       expandedProjectId: null,
       openMenuId: null,
       modal: null,
@@ -664,6 +735,115 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .split-remaining-text .remaining { color: var(--success-color, #4caf50); }
         .split-remaining-text .remaining.over { color: var(--error-color, #f44336); }
         
+        /* Dashboard Styles */
+        .dashboard-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+        @media (min-width: 768px) { .dashboard-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 1200px) { .dashboard-grid { grid-template-columns: repeat(3, 1fr); } }
+        .dashboard-card { background-color: var(--card-background-color, #fff); border-radius: var(--ha-card-border-radius, 12px); box-shadow: var(--ha-card-box-shadow, 0 2px 4px rgba(0,0,0,0.1)); overflow: hidden; }
+        .dashboard-card.full-width { grid-column: 1 / -1; }
+        .dashboard-card.half-width { grid-column: span 1; }
+        @media (min-width: 768px) { .dashboard-card.half-width { grid-column: span 1; } }
+        .dashboard-card-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--divider-color, #e0e0e0); }
+        .dashboard-card-header h3 { margin: 0; font-size: 16px; font-weight: 500; color: var(--primary-text-color, #212121); }
+        .dashboard-card-body { padding: 20px; }
+        .dashboard-card-body.no-padding { padding: 0; }
+        
+        /* Time Period Selector */
+        .time-period-selector { display: flex; gap: 4px; background-color: var(--secondary-background-color, #f5f5f5); border-radius: 8px; padding: 4px; }
+        .time-period-btn { padding: 6px 12px; border: none; background: none; border-radius: 6px; font-size: 12px; font-weight: 500; color: var(--secondary-text-color, #757575); cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .time-period-btn:hover { color: var(--primary-text-color, #212121); }
+        .time-period-btn.active { background-color: var(--card-background-color, #fff); color: var(--primary-color, #03a9f4); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        
+        /* Summary Stats Row */
+        .summary-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+        @media (min-width: 480px) { .summary-stats { grid-template-columns: repeat(4, 1fr); } }
+        .summary-stat { text-align: center; padding: 12px 8px; }
+        .summary-stat-value { font-size: 28px; font-weight: 500; color: var(--primary-text-color, #212121); line-height: 1.2; }
+        .summary-stat-value.positive { color: var(--success-color, #4caf50); }
+        .summary-stat-value.negative { color: var(--error-color, #f44336); }
+        .summary-stat-label { font-size: 12px; color: var(--secondary-text-color, #757575); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        /* Donut Chart */
+        .donut-chart-container { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; justify-content: center; }
+        @media (min-width: 480px) { .donut-chart-container { flex-wrap: nowrap; } }
+        .donut-chart { position: relative; width: 160px; height: 160px; flex-shrink: 0; }
+        .donut-chart svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+        .donut-chart-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+        .donut-chart-center-value { font-size: 24px; font-weight: 500; color: var(--primary-text-color, #212121); }
+        .donut-chart-center-label { font-size: 11px; color: var(--secondary-text-color, #757575); text-transform: uppercase; }
+        .donut-legend { flex: 1; min-width: 150px; }
+        .donut-legend-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--divider-color, #e0e0e0); }
+        .donut-legend-item:last-child { border-bottom: none; }
+        .donut-legend-color { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+        .donut-legend-label { flex: 1; font-size: 13px; color: var(--primary-text-color, #212121); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .donut-legend-value { font-size: 13px; font-weight: 500; color: var(--primary-text-color, #212121); }
+        .donut-legend-percent { font-size: 12px; color: var(--secondary-text-color, #757575); margin-left: 4px; }
+        
+        /* Bar Chart */
+        .bar-chart { padding: 8px 0; }
+        .bar-chart-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .bar-chart-row:last-child { margin-bottom: 0; }
+        .bar-chart-label { width: 100px; font-size: 13px; color: var(--primary-text-color, #212121); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+        .bar-chart-bar-container { flex: 1; height: 24px; background-color: var(--secondary-background-color, #f5f5f5); border-radius: 4px; overflow: hidden; position: relative; }
+        .bar-chart-bar { height: 100%; border-radius: 4px; transition: width 0.5s ease; min-width: 2px; }
+        .bar-chart-bar-text { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 12px; font-weight: 500; color: var(--primary-text-color, #212121); }
+        .bar-chart-value { width: 80px; text-align: right; font-size: 13px; font-weight: 500; color: var(--primary-text-color, #212121); flex-shrink: 0; }
+        
+        /* Timeline Chart */
+        .timeline-chart { height: 200px; position: relative; }
+        .timeline-chart svg { width: 100%; height: 100%; }
+        .timeline-chart-labels { display: flex; justify-content: space-between; padding: 8px 0; font-size: 11px; color: var(--secondary-text-color, #757575); }
+        .timeline-chart-tooltip { position: absolute; background-color: var(--card-background-color, #fff); border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); padding: 8px 12px; font-size: 12px; pointer-events: none; z-index: 10; white-space: nowrap; }
+        .timeline-chart-tooltip-value { font-weight: 500; color: var(--primary-text-color, #212121); }
+        .timeline-chart-tooltip-label { color: var(--secondary-text-color, #757575); margin-top: 2px; }
+        
+        /* Budget Health Cards */
+        .budget-health-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .budget-health-card { text-align: center; padding: 16px 12px; background-color: var(--secondary-background-color, #f5f5f5); border-radius: 8px; }
+        .budget-health-card.on-track { background-color: rgba(76, 175, 80, 0.1); }
+        .budget-health-card.at-risk { background-color: rgba(255, 152, 0, 0.1); }
+        .budget-health-card.over-budget { background-color: rgba(244, 67, 54, 0.1); }
+        .budget-health-value { font-size: 32px; font-weight: 500; line-height: 1; }
+        .budget-health-card.on-track .budget-health-value { color: var(--success-color, #4caf50); }
+        .budget-health-card.at-risk .budget-health-value { color: var(--warning-color, #ff9800); }
+        .budget-health-card.over-budget .budget-health-value { color: var(--error-color, #f44336); }
+        .budget-health-label { font-size: 11px; color: var(--secondary-text-color, #757575); margin-top: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        /* Project Budget List */
+        .budget-project-list { max-height: 300px; overflow-y: auto; }
+        .budget-project-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--divider-color, #e0e0e0); }
+        .budget-project-item:last-child { border-bottom: none; }
+        .budget-project-info { flex: 1; min-width: 0; }
+        .budget-project-name { font-size: 14px; font-weight: 500; color: var(--primary-text-color, #212121); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .budget-project-amount { font-size: 12px; color: var(--secondary-text-color, #757575); margin-top: 2px; }
+        .budget-project-bar { flex: 1; height: 8px; background-color: var(--secondary-background-color, #f5f5f5); border-radius: 4px; overflow: hidden; min-width: 80px; }
+        .budget-project-progress { height: 100%; border-radius: 4px; transition: width 0.3s ease; }
+        .budget-project-progress.on-track { background-color: var(--success-color, #4caf50); }
+        .budget-project-progress.at-risk { background-color: var(--warning-color, #ff9800); }
+        .budget-project-progress.over-budget { background-color: var(--error-color, #f44336); }
+        .budget-project-percent { width: 50px; text-align: right; font-size: 13px; font-weight: 500; }
+        .budget-project-percent.on-track { color: var(--success-color, #4caf50); }
+        .budget-project-percent.at-risk { color: var(--warning-color, #ff9800); }
+        .budget-project-percent.over-budget { color: var(--error-color, #f44336); }
+        
+        /* Recent Activity List */
+        .activity-list { max-height: 350px; overflow-y: auto; }
+        .activity-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--divider-color, #e0e0e0); }
+        .activity-item:last-child { border-bottom: none; }
+        .activity-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .activity-icon svg { width: 20px; height: 20px; }
+        .activity-content { flex: 1; min-width: 0; }
+        .activity-title { font-size: 14px; font-weight: 500; color: var(--primary-text-color, #212121); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .activity-meta { font-size: 12px; color: var(--secondary-text-color, #757575); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .activity-amount { font-size: 14px; font-weight: 500; color: var(--primary-text-color, #212121); flex-shrink: 0; }
+        
+        /* Empty Dashboard State */
+        .dashboard-empty { text-align: center; padding: 60px 20px; }
+        .dashboard-empty-icon { width: 80px; height: 80px; margin: 0 auto 20px; color: var(--secondary-text-color, #757575); opacity: 0.5; }
+        .dashboard-empty-icon svg { width: 100%; height: 100%; }
+        .dashboard-empty-title { font-size: 20px; font-weight: 500; color: var(--primary-text-color, #212121); margin-bottom: 8px; }
+        .dashboard-empty-desc { font-size: 14px; color: var(--secondary-text-color, #757575); max-width: 300px; margin: 0 auto; }
+        
         /* Category budget rows for project modal */
         .category-budget-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
         .category-budget-row { display: flex; align-items: center; gap: 8px; }
@@ -870,6 +1050,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
     const closedProjects = this._state.projects.filter((p) => p.status === "closed");
 
     // Navigation icons
+    const dashboardIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M13,3V9H21V3M13,21H21V11H13M3,21H11V15H3M3,13H11V3H3V13Z"/></svg>';
     const projectsIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3"/></svg>';
     const receiptsIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M3,22V3H21V22L18,20L15,22L12,20L9,22L6,20L3,22M17,9V7H7V9H17M15,13V11H7V13H15M13,17V15H7V17H13Z"/></svg>';
     const merchantsIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M18.36,9L18.96,12H5.04L5.64,9H18.36M20,4H4V6H20V4M20,7H4L3,12V14H4V20H14V14H18V20H20V14H21V12L20,7M6,18V14H12V18H6Z"/></svg>';
@@ -878,9 +1059,10 @@ class HomeProjectLedgerPanel extends HTMLElement {
 
     this._container.innerHTML = `
       ${this._renderMobileAppBar()}
-      ${this._renderMainNav(projectsIcon, receiptsIcon, merchantsIcon, categoriesIcon, settingsIcon, allReceipts.length, merchants.length, categories.length)}
+      ${this._renderMainNav(dashboardIcon, projectsIcon, receiptsIcon, merchantsIcon, categoriesIcon, settingsIcon, allReceipts, merchants, categories)}
       <div class="main-content">
         <div class="container">
+          ${this._state.activeTab === 'dashboard' ? this._renderDashboardTab(allReceipts, merchants, categories, openProjects) : ''}
           ${this._state.activeTab === 'projects' ? this._renderProjectsTab(openProjects, closedProjects) : ''}
           ${this._state.activeTab === 'receipts' ? this._renderReceiptsTab(allReceipts) : ''}
           ${this._state.activeTab === 'merchants' ? this._renderMerchantsTab(merchants) : ''}
@@ -904,7 +1086,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
     '</div>';
   }
 
-  _renderMainNav(projectsIcon, receiptsIcon, merchantsIcon, categoriesIcon, settingsIcon, receiptsCount, merchantsCount, categoriesCount) {
+  _renderMainNav(dashboardIcon, projectsIcon, receiptsIcon, merchantsIcon, categoriesIcon, settingsIcon, allReceipts, merchants, categories) {
+    const isDashboard = this._state.activeTab === 'dashboard';
     const isProjects = this._state.activeTab === 'projects';
     const isReceipts = this._state.activeTab === 'receipts';
     const isMerchants = this._state.activeTab === 'merchants';
@@ -912,10 +1095,11 @@ class HomeProjectLedgerPanel extends HTMLElement {
     const isSettings = this._state.activeTab === 'settings';
 
     return '<nav class="main-nav">' +
+      '<button class="main-nav-item ' + (isDashboard ? 'active' : '') + '" data-tab="dashboard">' + dashboardIcon + '<span class="nav-label">' + this._t('dashboard') + '</span></button>' +
       '<button class="main-nav-item ' + (isProjects ? 'active' : '') + '" data-tab="projects">' + projectsIcon + '<span class="nav-label">' + this._t('projects') + '<span class="nav-badge">' + this._state.projects.length + '</span></span></button>' +
-      '<button class="main-nav-item ' + (isReceipts ? 'active' : '') + '" data-tab="receipts">' + receiptsIcon + '<span class="nav-label">' + this._t('receipts') + '<span class="nav-badge">' + receiptsCount + '</span></span></button>' +
-      '<button class="main-nav-item ' + (isMerchants ? 'active' : '') + '" data-tab="merchants">' + merchantsIcon + '<span class="nav-label">' + this._t('merchants') + '<span class="nav-badge">' + merchantsCount + '</span></span></button>' +
-      '<button class="main-nav-item ' + (isCategories ? 'active' : '') + '" data-tab="categories">' + categoriesIcon + '<span class="nav-label">' + this._t('categories') + '<span class="nav-badge">' + categoriesCount + '</span></span></button>' +
+      '<button class="main-nav-item ' + (isReceipts ? 'active' : '') + '" data-tab="receipts">' + receiptsIcon + '<span class="nav-label">' + this._t('receipts') + '<span class="nav-badge">' + allReceipts.length + '</span></span></button>' +
+      '<button class="main-nav-item ' + (isMerchants ? 'active' : '') + '" data-tab="merchants">' + merchantsIcon + '<span class="nav-label">' + this._t('merchants') + '<span class="nav-badge">' + merchants.length + '</span></span></button>' +
+      '<button class="main-nav-item ' + (isCategories ? 'active' : '') + '" data-tab="categories">' + categoriesIcon + '<span class="nav-label">' + this._t('categories') + '<span class="nav-badge">' + categories.length + '</span></span></button>' +
       '<button class="main-nav-item ' + (isSettings ? 'active' : '') + '" data-tab="settings">' + settingsIcon + '<span class="nav-label">' + this._t('settings') + '</span></button>' +
     '</nav>';
   }
@@ -923,6 +1107,452 @@ class HomeProjectLedgerPanel extends HTMLElement {
   _renderFAB() {
     const addIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"/></svg>';
     return '<button class="fab" data-action="quick-add-receipt" title="' + this._t('quickAddReceipt') + '">' + addIcon + '</button>';
+  }
+
+  // ==================== DASHBOARD TAB ====================
+  
+  _renderDashboardTab(allReceipts, merchants, categories, openProjects) {
+    // Filter receipts by time period
+    const filteredReceipts = this._filterReceiptsByPeriod(allReceipts);
+    
+    // If no data, show empty state
+    if (allReceipts.length === 0) {
+      return this._renderDashboardEmpty();
+    }
+    
+    // Calculate stats
+    const totalSpend = filteredReceipts.reduce((sum, r) => sum + (r.total || 0), 0);
+    const avgPerReceipt = filteredReceipts.length > 0 ? totalSpend / filteredReceipts.length : 0;
+    
+    // Get category data for filtered receipts
+    const categoryData = this._getCategoryData(filteredReceipts);
+    const merchantData = this._getMerchantData(filteredReceipts);
+    const projectData = this._getProjectData(filteredReceipts);
+    const timelineData = this._getTimelineData(filteredReceipts);
+    
+    // Budget health
+    const projectsWithBudget = this._state.projects.filter(p => p.budget && p.budget > 0);
+    const onTrack = projectsWithBudget.filter(p => (p.spend / p.budget) < 0.75).length;
+    const atRisk = projectsWithBudget.filter(p => (p.spend / p.budget) >= 0.75 && (p.spend / p.budget) < 1).length;
+    const overBudget = projectsWithBudget.filter(p => (p.spend / p.budget) >= 1).length;
+    
+    return '<div class="page-header">' +
+        '<h1>' + this._t('dashboard') + '</h1>' +
+        this._renderTimePeriodSelector() +
+      '</div>' +
+      '<div class="dashboard-grid">' +
+        // Summary stats card
+        this._renderSummaryCard(totalSpend, filteredReceipts.length, avgPerReceipt, this._state.projects.length) +
+        // Budget health card
+        this._renderBudgetHealthCard(projectsWithBudget.length, onTrack, atRisk, overBudget) +
+        // Spending timeline
+        this._renderTimelineCard(timelineData) +
+        // Category breakdown
+        this._renderDonutCard(this._t('spendByCategory'), categoryData, totalSpend) +
+        // Top merchants
+        this._renderBarCard(this._t('topMerchants'), merchantData) +
+        // Project spending
+        this._renderDonutCard(this._t('spendByProject'), projectData, totalSpend) +
+        // Budget tracking
+        this._renderBudgetTrackingCard(projectsWithBudget) +
+        // Recent activity
+        this._renderRecentActivityCard(filteredReceipts.slice(0, 10)) +
+      '</div>';
+  }
+  
+  _renderDashboardEmpty() {
+    const chartIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M22,21H2V3H4V19H6V10H10V19H12V6H16V19H18V14H22V21Z"/></svg>';
+    return '<div class="dashboard-empty">' +
+      '<div class="dashboard-empty-icon">' + chartIcon + '</div>' +
+      '<div class="dashboard-empty-title">' + this._t('noDataYet') + '</div>' +
+      '<div class="dashboard-empty-desc">' + this._t('noDataYetDesc') + '</div>' +
+    '</div>';
+  }
+  
+  _renderTimePeriodSelector() {
+    const periods = [
+      { id: 'thisMonth', label: this._t('thisMonth') },
+      { id: 'lastMonth', label: this._t('lastMonth') },
+      { id: 'last3Months', label: this._t('last3Months') },
+      { id: 'thisYear', label: this._t('thisYear') },
+      { id: 'allTime', label: this._t('allTime') },
+    ];
+    
+    let html = '<div class="time-period-selector">';
+    periods.forEach(p => {
+      const active = this._state.dashboardPeriod === p.id ? ' active' : '';
+      html += '<button class="time-period-btn' + active + '" data-action="set-period" data-period="' + p.id + '">' + p.label + '</button>';
+    });
+    html += '</div>';
+    return html;
+  }
+  
+  _filterReceiptsByPeriod(receipts) {
+    const now = new Date();
+    const period = this._state.dashboardPeriod || 'allTime';
+    
+    if (period === 'allTime') return receipts;
+    
+    let startDate;
+    switch (period) {
+      case 'thisMonth':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 'lastMonth':
+        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+        return receipts.filter(r => {
+          const d = new Date(r.date);
+          return d >= startDate && d <= endOfLastMonth;
+        });
+      case 'last3Months':
+        startDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+        break;
+      case 'last6Months':
+        startDate = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+        break;
+      case 'thisYear':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        break;
+      default:
+        return receipts;
+    }
+    
+    return receipts.filter(r => new Date(r.date) >= startDate);
+  }
+  
+  _getCategoryData(receipts) {
+    const map = new Map();
+    receipts.forEach(r => {
+      const cats = r.category_summary ? r.category_summary.split(',').map(c => c.trim()).filter(c => c) : [this._t('uncategorized')];
+      const amountPer = (r.total || 0) / cats.length;
+      cats.forEach(cat => {
+        const existing = map.get(cat) || 0;
+        map.set(cat, existing + amountPer);
+      });
+    });
+    return Array.from(map.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8);
+  }
+  
+  _getMerchantData(receipts) {
+    const map = new Map();
+    receipts.forEach(r => {
+      if (r.merchant) {
+        const existing = map.get(r.merchant) || 0;
+        map.set(r.merchant, existing + (r.total || 0));
+      }
+    });
+    return Array.from(map.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
+  }
+  
+  _getProjectData(receipts) {
+    const map = new Map();
+    receipts.forEach(r => {
+      const name = r.project_name || this._t('unknown');
+      const existing = map.get(name) || 0;
+      map.set(name, existing + (r.total || 0));
+    });
+    return Array.from(map.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8);
+  }
+  
+  _getTimelineData(receipts) {
+    // Group by month
+    const map = new Map();
+    const now = new Date();
+    
+    // Initialize last 12 months
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = d.toISOString().substring(0, 7); // YYYY-MM
+      map.set(key, { month: key, value: 0, label: this._formatMonth(d) });
+    }
+    
+    receipts.forEach(r => {
+      if (r.date) {
+        const key = r.date.substring(0, 7);
+        if (map.has(key)) {
+          map.get(key).value += r.total || 0;
+        }
+      }
+    });
+    
+    return Array.from(map.values());
+  }
+  
+  _formatMonth(date) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[date.getMonth()];
+  }
+  
+  _renderSummaryCard(totalSpend, receiptCount, avgPerReceipt, projectCount) {
+    return '<div class="dashboard-card full-width">' +
+      '<div class="dashboard-card-header"><h3>' + this._t('spendingOverview') + '</h3></div>' +
+      '<div class="dashboard-card-body">' +
+        '<div class="summary-stats">' +
+          '<div class="summary-stat">' +
+            '<div class="summary-stat-value">' + this._formatCurrency(totalSpend) + '</div>' +
+            '<div class="summary-stat-label">' + this._t('totalSpend') + '</div>' +
+          '</div>' +
+          '<div class="summary-stat">' +
+            '<div class="summary-stat-value">' + receiptCount + '</div>' +
+            '<div class="summary-stat-label">' + this._t('totalReceipts') + '</div>' +
+          '</div>' +
+          '<div class="summary-stat">' +
+            '<div class="summary-stat-value">' + this._formatCurrency(avgPerReceipt) + '</div>' +
+            '<div class="summary-stat-label">' + this._t('averagePerReceipt') + '</div>' +
+          '</div>' +
+          '<div class="summary-stat">' +
+            '<div class="summary-stat-value">' + projectCount + '</div>' +
+            '<div class="summary-stat-label">' + this._t('totalProjects') + '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+  
+  _renderBudgetHealthCard(total, onTrack, atRisk, overBudget) {
+    if (total === 0) {
+      return '<div class="dashboard-card">' +
+        '<div class="dashboard-card-header"><h3>' + this._t('budgetHealth') + '</h3></div>' +
+        '<div class="dashboard-card-body" style="text-align: center; color: var(--secondary-text-color); padding: 40px 20px;">' +
+          this._t('noBudget') +
+        '</div>' +
+      '</div>';
+    }
+    
+    return '<div class="dashboard-card">' +
+      '<div class="dashboard-card-header"><h3>' + this._t('budgetHealth') + '</h3></div>' +
+      '<div class="dashboard-card-body">' +
+        '<div class="budget-health-grid">' +
+          '<div class="budget-health-card on-track">' +
+            '<div class="budget-health-value">' + onTrack + '</div>' +
+            '<div class="budget-health-label">' + this._t('onTrack') + '</div>' +
+          '</div>' +
+          '<div class="budget-health-card at-risk">' +
+            '<div class="budget-health-value">' + atRisk + '</div>' +
+            '<div class="budget-health-label">' + this._t('atRisk') + '</div>' +
+          '</div>' +
+          '<div class="budget-health-card over-budget">' +
+            '<div class="budget-health-value">' + overBudget + '</div>' +
+            '<div class="budget-health-label">' + this._t('overBudgetCount') + '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+  
+  _renderTimelineCard(data) {
+    const maxValue = Math.max(...data.map(d => d.value), 1);
+    const height = 160;
+    const padding = 20;
+    const barWidth = (100 / data.length) - 1;
+    
+    // Build SVG bars
+    let barsHtml = '';
+    data.forEach((d, i) => {
+      const barHeight = (d.value / maxValue) * (height - padding * 2);
+      const x = (i / data.length) * 100 + 0.5;
+      const y = height - padding - barHeight;
+      const color = CHART_COLORS[i % CHART_COLORS.length];
+      barsHtml += '<rect x="' + x + '%" y="' + y + '" width="' + barWidth + '%" height="' + barHeight + '" fill="' + color + '" rx="3" class="timeline-bar" data-value="' + this._formatCurrency(d.value) + '" data-label="' + d.label + '"/>';
+    });
+    
+    // Labels
+    let labelsHtml = '<div class="timeline-chart-labels">';
+    data.forEach((d, i) => {
+      if (i % 2 === 0 || data.length <= 6) {
+        labelsHtml += '<span>' + d.label + '</span>';
+      }
+    });
+    labelsHtml += '</div>';
+    
+    return '<div class="dashboard-card full-width">' +
+      '<div class="dashboard-card-header"><h3>' + this._t('spendingTimeline') + '</h3></div>' +
+      '<div class="dashboard-card-body">' +
+        '<div class="timeline-chart">' +
+          '<svg viewBox="0 0 100 ' + height + '" preserveAspectRatio="none">' +
+            barsHtml +
+          '</svg>' +
+        '</div>' +
+        labelsHtml +
+      '</div>' +
+    '</div>';
+  }
+  
+  _renderDonutCard(title, data, total) {
+    if (data.length === 0) {
+      return '<div class="dashboard-card">' +
+        '<div class="dashboard-card-header"><h3>' + title + '</h3></div>' +
+        '<div class="dashboard-card-body" style="text-align: center; color: var(--secondary-text-color); padding: 40px 20px;">' +
+          this._t('noDataYet') +
+        '</div>' +
+      '</div>';
+    }
+    
+    // Calculate donut segments
+    const radius = 70;
+    const strokeWidth = 25;
+    const circumference = 2 * Math.PI * radius;
+    let currentOffset = 0;
+    
+    let segmentsHtml = '';
+    let legendHtml = '';
+    
+    data.forEach((d, i) => {
+      const percentage = total > 0 ? (d.value / total) * 100 : 0;
+      const segmentLength = (percentage / 100) * circumference;
+      const color = CHART_COLORS[i % CHART_COLORS.length];
+      
+      segmentsHtml += '<circle cx="80" cy="80" r="' + radius + '" fill="none" stroke="' + color + '" stroke-width="' + strokeWidth + '" ' +
+        'stroke-dasharray="' + segmentLength + ' ' + (circumference - segmentLength) + '" ' +
+        'stroke-dashoffset="' + (-currentOffset) + '" ' +
+        'style="transition: stroke-dashoffset 0.5s ease;"/>';
+      
+      currentOffset += segmentLength;
+      
+      legendHtml += '<div class="donut-legend-item">' +
+        '<div class="donut-legend-color" style="background-color: ' + color + ';"></div>' +
+        '<div class="donut-legend-label">' + this._escapeHtml(d.name) + '</div>' +
+        '<div class="donut-legend-value">' + this._formatCurrency(d.value) + '</div>' +
+        '<div class="donut-legend-percent">(' + percentage.toFixed(0) + '%)</div>' +
+      '</div>';
+    });
+    
+    return '<div class="dashboard-card">' +
+      '<div class="dashboard-card-header"><h3>' + title + '</h3></div>' +
+      '<div class="dashboard-card-body">' +
+        '<div class="donut-chart-container">' +
+          '<div class="donut-chart">' +
+            '<svg viewBox="0 0 160 160">' +
+              '<circle cx="80" cy="80" r="' + radius + '" fill="none" stroke="var(--divider-color, #e0e0e0)" stroke-width="' + strokeWidth + '"/>' +
+              segmentsHtml +
+            '</svg>' +
+            '<div class="donut-chart-center">' +
+              '<div class="donut-chart-center-value">' + this._formatCurrency(total) + '</div>' +
+              '<div class="donut-chart-center-label">' + this._t('totalSpend') + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="donut-legend">' + legendHtml + '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+  
+  _renderBarCard(title, data) {
+    if (data.length === 0) {
+      return '<div class="dashboard-card">' +
+        '<div class="dashboard-card-header"><h3>' + title + '</h3></div>' +
+        '<div class="dashboard-card-body" style="text-align: center; color: var(--secondary-text-color); padding: 40px 20px;">' +
+          this._t('noDataYet') +
+        '</div>' +
+      '</div>';
+    }
+    
+    const maxValue = Math.max(...data.map(d => d.value), 1);
+    
+    let barsHtml = '';
+    data.forEach((d, i) => {
+      const percentage = (d.value / maxValue) * 100;
+      const color = CHART_COLORS[i % CHART_COLORS.length];
+      
+      barsHtml += '<div class="bar-chart-row">' +
+        '<div class="bar-chart-label" title="' + this._escapeHtml(d.name) + '">' + this._escapeHtml(d.name) + '</div>' +
+        '<div class="bar-chart-bar-container">' +
+          '<div class="bar-chart-bar" style="width: ' + percentage + '%; background-color: ' + color + ';"></div>' +
+        '</div>' +
+        '<div class="bar-chart-value">' + this._formatCurrency(d.value) + '</div>' +
+      '</div>';
+    });
+    
+    return '<div class="dashboard-card">' +
+      '<div class="dashboard-card-header"><h3>' + title + '</h3></div>' +
+      '<div class="dashboard-card-body">' +
+        '<div class="bar-chart">' + barsHtml + '</div>' +
+      '</div>' +
+    '</div>';
+  }
+  
+  _renderBudgetTrackingCard(projectsWithBudget) {
+    if (projectsWithBudget.length === 0) {
+      return '<div class="dashboard-card">' +
+        '<div class="dashboard-card-header"><h3>' + this._t('budgetOverview') + '</h3></div>' +
+        '<div class="dashboard-card-body" style="text-align: center; color: var(--secondary-text-color); padding: 40px 20px;">' +
+          this._t('noBudget') +
+        '</div>' +
+      '</div>';
+    }
+    
+    let listHtml = '';
+    projectsWithBudget.forEach(p => {
+      const percentage = Math.min((p.spend / p.budget) * 100, 100);
+      const actualPercent = (p.spend / p.budget) * 100;
+      let statusClass = 'on-track';
+      if (actualPercent >= 100) statusClass = 'over-budget';
+      else if (actualPercent >= 75) statusClass = 'at-risk';
+      
+      listHtml += '<div class="budget-project-item">' +
+        '<div class="budget-project-info">' +
+          '<div class="budget-project-name">' + this._escapeHtml(p.name) + '</div>' +
+          '<div class="budget-project-amount">' + this._formatCurrency(p.spend) + ' / ' + this._formatCurrency(p.budget) + '</div>' +
+        '</div>' +
+        '<div class="budget-project-bar">' +
+          '<div class="budget-project-progress ' + statusClass + '" style="width: ' + percentage + '%;"></div>' +
+        '</div>' +
+        '<div class="budget-project-percent ' + statusClass + '">' + actualPercent.toFixed(0) + '%</div>' +
+      '</div>';
+    });
+    
+    return '<div class="dashboard-card">' +
+      '<div class="dashboard-card-header"><h3>' + this._t('budgetOverview') + '</h3></div>' +
+      '<div class="dashboard-card-body no-padding">' +
+        '<div class="budget-project-list" style="padding: 0 20px 20px;">' + listHtml + '</div>' +
+      '</div>' +
+    '</div>';
+  }
+  
+  _renderRecentActivityCard(receipts) {
+    if (receipts.length === 0) {
+      return '<div class="dashboard-card">' +
+        '<div class="dashboard-card-header"><h3>' + this._t('recentActivity') + '</h3></div>' +
+        '<div class="dashboard-card-body" style="text-align: center; color: var(--secondary-text-color); padding: 40px 20px;">' +
+          this._t('noReceiptsYet') +
+        '</div>' +
+      '</div>';
+    }
+    
+    // Sort by date descending
+    const sorted = [...receipts].sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    let listHtml = '';
+    sorted.forEach((r, i) => {
+      const color = CHART_COLORS[i % CHART_COLORS.length];
+      const receiptIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M3,22V3H21V22L18,20L15,22L12,20L9,22L6,20L3,22M17,9V7H7V9H17M15,13V11H7V13H15M13,17V15H7V17H13Z"/></svg>';
+      
+      listHtml += '<div class="activity-item">' +
+        '<div class="activity-icon" style="background-color: ' + color + '20; color: ' + color + ';">' + receiptIcon + '</div>' +
+        '<div class="activity-content">' +
+          '<div class="activity-title">' + this._escapeHtml(r.merchant || this._t('unknown')) + '</div>' +
+          '<div class="activity-meta">' + (r.project_name || '') + ' • ' + this._formatDate(r.date) + '</div>' +
+        '</div>' +
+        '<div class="activity-amount">' + this._formatCurrency(r.total || 0) + '</div>' +
+      '</div>';
+    });
+    
+    return '<div class="dashboard-card">' +
+      '<div class="dashboard-card-header"><h3>' + this._t('recentActivity') + '</h3></div>' +
+      '<div class="dashboard-card-body no-padding">' +
+        '<div class="activity-list" style="padding: 0 20px 20px;">' + listHtml + '</div>' +
+      '</div>' +
+    '</div>';
   }
 
   _renderProjectsTab(openProjects, closedProjects) {
@@ -2428,6 +3058,10 @@ class HomeProjectLedgerPanel extends HTMLElement {
         this._state.categoryBudgets = null; // Clear category budgets
         this._render();
         break;
+      case "set-period":
+        this._state.dashboardPeriod = dataset.period;
+        this._render();
+        break;
       case "remove-category":
         const catIndex = parseInt(dataset.index, 10);
         if (!isNaN(catIndex) && this._state.selectedCategories) {
@@ -2819,6 +3453,16 @@ class HomeProjectLedgerPanel extends HTMLElement {
 
   _formatCurrency(amount) {
     return new Intl.NumberFormat("sv-SE", { style: "currency", currency: this._state.currency }).format(amount);
+  }
+
+  _formatDate(dateStr) {
+    if (!dateStr) return this._t('noDate');
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString("sv-SE", { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch (e) {
+      return dateStr;
+    }
   }
 
   _escapeHtml(text) {
