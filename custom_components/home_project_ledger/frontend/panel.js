@@ -82,6 +82,7 @@ const TRANSLATIONS = {
     categoryPercent: "Percentage",
     splitMustEqual100: "Percentages must total 100%",
     splitMustEqualTotal: "Amounts must equal total",
+    categoryBudgetsExceedTotal: "Category budgets cannot exceed total budget",
     
     // Hints
     existingMerchants: "{count} existing merchants",
@@ -261,6 +262,7 @@ const TRANSLATIONS = {
     categoryPercent: "Procent",
     splitMustEqual100: "Procenten måste summera till 100%",
     splitMustEqualTotal: "Beloppen måste summera till totalen",
+    categoryBudgetsExceedTotal: "Kategoribudgetar kan inte överskrida total budget",
     
     // Hints
     existingMerchants: "{count} befintliga butiker",
@@ -649,9 +651,12 @@ class HomeProjectLedgerPanel extends HTMLElement {
         /* Category budget rows for project modal */
         .category-budget-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
         .category-budget-row { display: flex; align-items: center; gap: 8px; }
-        .category-budget-row input[type="text"] { flex: 2; padding: 8px 12px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: 6px; font-size: 13px; }
+        .category-budget-row .category-budget-autocomplete { flex: 2; position: relative; }
+        .category-budget-row .category-budget-autocomplete input[type="text"] { width: 100%; padding: 8px 12px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: 6px; font-size: 13px; box-sizing: border-box; }
+        .category-budget-row .category-budget-autocomplete input[type="text"]:focus { outline: none; border-color: var(--primary-color, #03a9f4); }
+        .category-budget-row .category-budget-dropdown { position: absolute; top: 100%; left: 0; right: 0; background-color: var(--card-background-color, #fff); border: 1px solid var(--divider-color, #e0e0e0); border-top: none; border-radius: 0 0 6px 6px; max-height: 150px; overflow-y: auto; z-index: 1001; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         .category-budget-row input[type="number"] { flex: 1; padding: 8px 12px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: 6px; font-size: 13px; text-align: right; }
-        .category-budget-row .remove-budget-btn { width: 32px; height: 32px; border: none; background: none; cursor: pointer; color: var(--secondary-text-color, #757575); display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+        .category-budget-row .remove-budget-btn { width: 32px; height: 32px; border: none; background: none; cursor: pointer; color: var(--secondary-text-color, #757575); display: flex; align-items: center; justify-content: center; border-radius: 50%; flex-shrink: 0; }
         .category-budget-row .remove-budget-btn:hover { background-color: rgba(244, 67, 54, 0.1); color: var(--error-color, #f44336); }
         .category-budget-row .remove-budget-btn svg { width: 18px; height: 18px; }
         .add-category-budget-btn { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border: 1px dashed var(--divider-color, #e0e0e0); background: none; border-radius: 6px; font-size: 13px; color: var(--secondary-text-color, #757575); cursor: pointer; width: 100%; justify-content: center; }
@@ -1449,11 +1454,14 @@ class HomeProjectLedgerPanel extends HTMLElement {
     const categoryBudgets = this._state.categoryBudgets || 
       (data.budget_by_category ? Object.entries(data.budget_by_category).map(([cat, amount]) => ({ category: cat, amount })) : []);
     
-    // Render category budget rows
+    // Render category budget rows with autocomplete
     let categoryBudgetHtml = '<div class="category-budget-list" id="category-budget-list">';
     categoryBudgets.forEach((item, i) => {
       categoryBudgetHtml += '<div class="category-budget-row">' +
-        '<input type="text" class="category-budget-name" data-index="' + i + '" value="' + this._escapeHtml(item.category || '') + '" placeholder="' + this._t('categoryOptional').replace(' (optional)', '').replace(' (valfritt)', '') + '">' +
+        '<div class="autocomplete-container category-budget-autocomplete" data-index="' + i + '">' +
+          '<input type="text" class="category-budget-name autocomplete-input" data-index="' + i + '" value="' + this._escapeHtml(item.category || '') + '" placeholder="' + this._t('searchOrTypeNew') + '" autocomplete="off">' +
+          '<div class="autocomplete-dropdown category-budget-dropdown" data-index="' + i + '" style="display:none;"></div>' +
+        '</div>' +
         '<input type="number" class="category-budget-amount" data-index="' + i + '" value="' + (item.amount || '') + '" placeholder="0" min="0" step="0.01">' +
         '<button type="button" class="remove-budget-btn" data-action="remove-category-budget" data-index="' + i + '">' + removeIcon + '</button>' +
       '</div>';
@@ -1485,7 +1493,18 @@ class HomeProjectLedgerPanel extends HTMLElement {
     const removeIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/></svg>';
     
     // Get selected categories from modal state (or from existing receipt data)
-    const selectedCategories = this._state.selectedCategories || data.categories || (data.category_summary ? [data.category_summary] : []);
+    // State takes priority, then categories array, then parse category_summary
+    let selectedCategories = this._state.selectedCategories;
+    if (!selectedCategories) {
+      if (data.categories && data.categories.length > 0) {
+        selectedCategories = data.categories;
+      } else if (data.category_summary) {
+        // Parse comma-separated category_summary into array
+        selectedCategories = data.category_summary.split(',').map(c => c.trim()).filter(c => c);
+      } else {
+        selectedCategories = [];
+      }
+    }
     const splitType = this._state.categorySplitType || data.category_split_type || 'equal';
     const splitValues = this._state.categorySplitValues || data.category_split || {};
     
@@ -1794,14 +1813,13 @@ class HomeProjectLedgerPanel extends HTMLElement {
       });
     });
     
-    // Listen for category budget input changes (project modal)
+    // Listen for category budget input changes (project modal) with autocomplete
     this._container.querySelectorAll(".category-budget-name").forEach(input => {
-      input.addEventListener("input", (e) => {
-        const index = parseInt(e.target.dataset.index, 10);
-        if (!isNaN(index) && this._state.categoryBudgets && this._state.categoryBudgets[index]) {
-          this._state.categoryBudgets[index].category = e.target.value;
-        }
-      });
+      const index = parseInt(input.dataset.index, 10);
+      const dropdown = this._container.querySelector('.category-budget-dropdown[data-index="' + index + '"]');
+      if (dropdown) {
+        this._setupCategoryBudgetAutocomplete(input, dropdown, this._getAllCategories(), index);
+      }
     });
     
     this._container.querySelectorAll(".category-budget-amount").forEach(input => {
@@ -2010,6 +2028,107 @@ class HomeProjectLedgerPanel extends HTMLElement {
     });
   }
 
+  _setupCategoryBudgetAutocomplete(input, dropdown, allOptions, budgetIndex) {
+    let highlightedIndex = -1;
+    const checkIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"/></svg>';
+    const plusIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"/></svg>';
+
+    const selectCategory = (category) => {
+      input.value = category;
+      dropdown.style.display = 'none';
+      // Update state
+      if (!this._state.categoryBudgets) {
+        this._state.categoryBudgets = [];
+      }
+      if (this._state.categoryBudgets[budgetIndex]) {
+        this._state.categoryBudgets[budgetIndex].category = category;
+      }
+    };
+
+    const showDropdown = (filteredOptions, query) => {
+      let html = '';
+      
+      // Show matching options with check icon
+      filteredOptions.forEach((opt, idx) => {
+        const isHighlighted = idx === highlightedIndex ? ' highlighted' : '';
+        html += '<div class="autocomplete-item' + isHighlighted + '" data-value="' + this._escapeHtml(opt) + '">' + checkIcon + '<span>' + this._escapeHtml(opt) + '</span></div>';
+      });
+      
+      // Show "Create new" option if query doesn't exactly match any option
+      const exactMatch = allOptions.some(opt => opt.toLowerCase() === query.toLowerCase());
+      if (query && !exactMatch) {
+        const createIdx = filteredOptions.length;
+        const isHighlighted = createIdx === highlightedIndex ? ' highlighted' : '';
+        html += '<div class="autocomplete-item create-new' + isHighlighted + '" data-value="' + this._escapeHtml(query) + '" data-create="true">' + plusIcon + '<span>' + this._t('createNew', { name: this._escapeHtml(query) }) + '</span></div>';
+      }
+      
+      if (!html) {
+        dropdown.style.display = 'none';
+        return;
+      }
+      
+      dropdown.innerHTML = html;
+      dropdown.style.display = 'block';
+
+      dropdown.querySelectorAll('.autocomplete-item').forEach(item => {
+        item.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          selectCategory(item.dataset.value);
+        });
+      });
+    };
+
+    const filterOptions = () => {
+      const query = input.value.trim();
+      // Update state as user types
+      if (this._state.categoryBudgets && this._state.categoryBudgets[budgetIndex]) {
+        this._state.categoryBudgets[budgetIndex].category = query;
+      }
+      if (!query) {
+        dropdown.style.display = 'none';
+        return;
+      }
+      const queryLower = query.toLowerCase();
+      const filtered = allOptions.filter(opt => opt.toLowerCase().includes(queryLower));
+      highlightedIndex = -1;
+      showDropdown(filtered, query);
+    };
+
+    input.addEventListener('input', filterOptions);
+    input.addEventListener('focus', () => {
+      const query = input.value.trim();
+      if (query) {
+        filterOptions();
+      } else {
+        // Show all options when focused with empty input
+        highlightedIndex = -1;
+        showDropdown(allOptions, '');
+      }
+    });
+    input.addEventListener('blur', () => {
+      setTimeout(() => { dropdown.style.display = 'none'; }, 150);
+    });
+    input.addEventListener('keydown', (e) => {
+      const items = dropdown.querySelectorAll('.autocomplete-item');
+      const maxIndex = items.length - 1;
+      
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        highlightedIndex = Math.min(highlightedIndex + 1, maxIndex);
+        items.forEach((item, idx) => item.classList.toggle('highlighted', idx === highlightedIndex));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        highlightedIndex = Math.max(highlightedIndex - 1, 0);
+        items.forEach((item, idx) => item.classList.toggle('highlighted', idx === highlightedIndex));
+      } else if (e.key === 'Enter' && highlightedIndex >= 0) {
+        e.preventDefault();
+        selectCategory(items[highlightedIndex].dataset.value);
+      } else if (e.key === 'Escape') {
+        dropdown.style.display = 'none';
+      }
+    });
+  }
+
   _handleAction(dataset) {
     const action = dataset.action;
     switch (action) {
@@ -2084,7 +2203,16 @@ class HomeProjectLedgerPanel extends HTMLElement {
         const receipt = project?.receipts?.find(r => r.receipt_id === dataset.receiptId);
         if (receipt) {
           // Initialize category state from receipt data
-          const cats = receipt.categories || (receipt.category_summary ? [receipt.category_summary] : []);
+          // Prefer the categories array, but fall back to parsing category_summary if needed
+          let cats = receipt.categories;
+          if (!cats || cats.length === 0) {
+            // Fall back to category_summary - split by comma if it contains multiple
+            if (receipt.category_summary) {
+              cats = receipt.category_summary.split(',').map(c => c.trim()).filter(c => c);
+            } else {
+              cats = [];
+            }
+          }
           this._state.selectedCategories = cats.length > 0 ? [...cats] : null;
           this._state.categorySplitType = receipt.category_split_type || 'equal';
           this._state.categorySplitValues = receipt.category_split ? { ...receipt.category_split } : {};
@@ -2258,6 +2386,15 @@ class HomeProjectLedgerPanel extends HTMLElement {
       }
     });
     const hasCategoryBudgets = Object.keys(budgetByCategory).length > 0;
+    
+    // Validate that category budgets don't exceed total budget
+    if (hasCategoryBudgets && budget !== null && budget > 0) {
+      const categoryBudgetSum = Object.values(budgetByCategory).reduce((sum, v) => sum + v, 0);
+      if (categoryBudgetSum > budget) {
+        alert(this._t('categoryBudgetsExceedTotal'));
+        return;
+      }
+    }
 
     if (!name) {
       alert(this._t('pleaseEnterProjectName'));
