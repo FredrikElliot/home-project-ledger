@@ -1,0 +1,19 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Home Project Ledger",
+        "description": "Configure your home project ledger settings.",
+        "data": {
+          "currency": "Default currency (e.g., SEK, USD, EUR)"
+        }
+      }
+    },
+    "error": {
+      "already_configured": "Home Project Ledger is already configured."
+    },
+    "abort": {
+      "already_configured": "Home Project Ledger is already configured."
+    }
+  }
+}

@@ -1,0 +1,127 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Konfigurera Home Project Ledger",
+        "description": "Konfigurera dina inställningar för hemprojektredovisning.",
+        "data": {
+          "currency": "Standardvaluta (t.ex. SEK, USD, EUR)"
+        }
+      }
+    },
+    "error": {
+      "already_configured": "Home Project Ledger är redan konfigurerad."
+    },
+    "abort": {
+      "already_configured": "Home Project Ledger är redan konfigurerad."
+    }
+  },
+  "services": {
+    "create_project": {
+      "name": "Skapa projekt",
+      "description": "Skapa ett nytt hemprojekt.",
+      "fields": {
+        "name": {
+          "name": "Projektnamn",
+          "description": "Projektets namn"
+        },
+        "area_id": {
+          "name": "Area ID",
+          "description": "Home Assistant area ID (valfritt)"
+        }
+      }
+    },
+    "close_project": {
+      "name": "Stäng projekt",
+      "description": "Stäng ett befintligt projekt.",
+      "fields": {
+        "project_id": {
+          "name": "Projekt-ID",
+          "description": "ID för projektet som ska stängas"
+        }
+      }
+    },
+    "add_receipt": {
+      "name": "Lägg till kvitto",
+      "description": "Lägg till ett kvitto till ett projekt.",
+      "fields": {
+        "project_id": {
+          "name": "Projekt-ID",
+          "description": "Projektets ID"
+        },
+        "area_id": {
+          "name": "Area ID",
+          "description": "Home Assistant area ID (valfritt)"
+        },
+        "merchant": {
+          "name": "Handlare",
+          "description": "Namn på handlaren"
+        },
+        "date": {
+          "name": "Datum",
+          "description": "Inköpsdatum (ISO-format)"
+        },
+        "total": {
+          "name": "Totalt",
+          "description": "Totalt belopp"
+        },
+        "currency": {
+          "name": "Valuta",
+          "description": "Valutakod (t.ex. SEK, USD)"
+        },
+        "category_summary": {
+          "name": "Kategorisammanfattning",
+          "description": "Sammanfattning av kategorier (valfritt)"
+        },
+        "image_data": {
+          "name": "Bilddata",
+          "description": "Base64-kodad bild (valfritt)"
+        },
+        "image_filename": {
+          "name": "Bildfilnamn",
+          "description": "Filnamn för bilden (valfritt)"
+        }
+      }
+    },
+    "update_receipt": {
+      "name": "Uppdatera kvitto",
+      "description": "Uppdatera ett befintligt kvitto.",
+      "fields": {
+        "receipt_id": {
+          "name": "Kvitto-ID",
+          "description": "ID för kvittot som ska uppdateras"
+        },
+        "merchant": {
+          "name": "Handlare",
+          "description": "Namn på handlaren (valfritt)"
+        },
+        "date": {
+          "name": "Datum",
+          "description": "Inköpsdatum (valfritt)"
+        },
+        "total": {
+          "name": "Totalt",
+          "description": "Totalt belopp (valfritt)"
+        },
+        "currency": {
+          "name": "Valuta",
+          "description": "Valutakod (valfritt)"
+        },
+        "category_summary": {
+          "name": "Kategorisammanfattning",
+          "description": "Sammanfattning av kategorier (valfritt)"
+        }
+      }
+    },
+    "delete_receipt": {
+      "name": "Ta bort kvitto",
+      "description": "Ta bort ett kvitto.",
+      "fields": {
+        "receipt_id": {
+          "name": "Kvitto-ID",
+          "description": "ID för kvittot som ska tas bort"
+        }
+      }
+    }
+  }
+}
