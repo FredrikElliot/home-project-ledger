@@ -3,34 +3,44 @@
     "step": {
       "user": {
         "title": "Set up Home Project Ledger",
-        "description": "Configure your home project ledger settings.",
+        "description": "Configure your home project ledger settings and choose where to store receipt images.",
         "data": {
-          "currency": "Default currency (e.g., SEK, USD, EUR)"
+          "currency": "Default currency (e.g., SEK, USD, EUR)",
+          "storage_provider": "Image Storage"
         }
+      },
+      "credentials_needed": {
+        "title": "Application Credentials Required",
+        "description": "To use {provider}, you need to add application credentials first.\n\n1. Go to **Settings → Devices & Services → Application Credentials**\n2. Click **Add Application Credentials**\n3. Select **Home Project Ledger**\n4. Enter your OAuth credentials from the provider's developer console\n5. Come back here and try again"
+      },
+      "auth": {
+        "title": "Authorize {provider}",
+        "description": "Please authorize access to your cloud storage account."
       }
     },
     "error": {
       "already_configured": "Home Project Ledger is already configured."
     },
     "abort": {
-      "already_configured": "Home Project Ledger is already configured."
+      "already_configured": "Home Project Ledger is already configured.",
+      "missing_credentials": "Application credentials not configured. Please add them in Settings → Devices & Services → Application Credentials.",
+      "oauth_error": "Error during OAuth authorization. Please try again.",
+      "no_code": "No authorization code received."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Cloud Storage Settings",
-        "description": "Configure cloud storage provider credentials. Get these from the respective developer consoles.",
+        "title": "Settings",
+        "description": "Current storage provider: {current_provider}. To change storage provider, remove and re-add the integration.",
         "data": {
-          "google_client_id": "Google Drive Client ID",
-          "google_client_secret": "Google Drive Client Secret",
-          "dropbox_app_key": "Dropbox App Key",
-          "dropbox_app_secret": "Dropbox App Secret",
-          "onedrive_client_id": "OneDrive Client ID",
-          "onedrive_client_secret": "OneDrive Client Secret"
+          "currency": "Default currency"
         }
       }
     }
+  },
+  "application_credentials": {
+    "description": "Enter OAuth credentials for cloud storage providers. You'll need to create an application in the respective developer console:\n\n- **Google Drive**: [Google Cloud Console](https://console.cloud.google.com/)\n- **Dropbox**: [Dropbox App Console](https://www.dropbox.com/developers/apps)\n- **OneDrive**: [Azure Portal](https://portal.azure.com/)"
   },
   "services": {
     "create_project": {

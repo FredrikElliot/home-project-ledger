@@ -145,7 +145,6 @@ const TRANSLATIONS = {
     notConnected: "Not connected",
     connect: "Connect",
     disconnect: "Disconnect",
-    configure: "Configure",
     authenticate: "Authenticate",
     authorizing: "Authorizing...",
     storageUsed: "Storage Used",
@@ -159,10 +158,9 @@ const TRANSLATIONS = {
     webdavUsername: "Username",
     webdavPassword: "Password",
     saveWebdav: "Save WebDAV Settings",
-    configureCredentials: "Configure API Credentials",
-    configureCredentialsDesc: "You need to configure API credentials before connecting to cloud storage providers.",
+    cloudStorageInfo: "Cloud Storage Configuration",
+    cloudStorageInfoDesc: "To use cloud storage, remove this integration and re-add it, selecting your preferred cloud provider during setup.",
     openIntegrationSettings: "Open Integration Settings",
-    credentialsConfigured: "Credentials configured",
     currentStorage: "Current Storage",
     switchProvider: "Switch Provider",
     failedStorageConfig: "Failed to configure storage",
@@ -306,7 +304,6 @@ const TRANSLATIONS = {
     notConnected: "Ej ansluten",
     connect: "Anslut",
     disconnect: "Koppla från",
-    configure: "Konfigurera",
     authenticate: "Autentisera",
     authorizing: "Auktoriserar...",
     storageUsed: "Använt utrymme",
@@ -320,10 +317,9 @@ const TRANSLATIONS = {
     webdavUsername: "Användarnamn",
     webdavPassword: "Lösenord",
     saveWebdav: "Spara WebDAV-inställningar",
-    configureCredentials: "Konfigurera API-uppgifter",
-    configureCredentialsDesc: "Du behöver konfigurera API-uppgifter innan du kan ansluta till molnlagringsleverantörer.",
+    cloudStorageInfo: "Molnlagringskonfiguration",
+    cloudStorageInfoDesc: "För att använda molnlagring, ta bort denna integration och lägg till den igen, välj önskad molnleverantör under installationen.",
     openIntegrationSettings: "Öppna integrationsinställningar",
-    credentialsConfigured: "Uppgifter konfigurerade",
     currentStorage: "Aktuell lagring",
     switchProvider: "Byt leverantör",
     failedStorageConfig: "Kunde inte konfigurera lagring",
@@ -1063,10 +1059,11 @@ class HomeProjectLedgerPanel extends HTMLElement {
       } else if (!isAvailable) {
         providerStatus = '<span class="provider-badge unavailable">' + this._t('notAvailableYet') + '</span>';
       } else if (!isConfigured && provider.type !== 'local' && provider.type !== 'webdav') {
+        // Cloud provider not configured - show informational badge only
+        // User needs to remove and re-add the integration to use cloud storage
         providerStatus = '<span class="provider-badge not-configured">' + this._t('notConfigured') + '</span>';
-        // Show configure button for unconfigured cloud providers
-        actionBtn = '<button class="secondary-btn small" data-action="open-integration-options">' + this._t('configure') + '</button>';
-      } else if (!isActive) {
+      } else if (!isActive && provider.type === 'local') {
+        // Can switch to local without re-adding
         actionBtn = '<button class="secondary-btn small" data-action="select-provider" data-provider="' + provider.type + '">' + this._t('connect') + '</button>';
       }
       
@@ -1092,45 +1089,22 @@ class HomeProjectLedgerPanel extends HTMLElement {
 
     providersSection += '</div></div></div>';
 
-    // Check if any cloud provider needs credentials
-    const cloudProviders = (status.providers || []).filter(p => p.type !== 'local' && p.type !== 'webdav');
-    const anyCloudConfigured = cloudProviders.some(p => p.configured);
-    
-    // Credentials configuration card
-    let credentialsCard = '';
-    if (!anyCloudConfigured) {
-      const settingsIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/></svg>';
-      credentialsCard = '<div class="card settings-card credentials-card">' +
-        '<div class="card-header"><h2>' + this._t('configureCredentials') + '</h2></div>' +
-        '<div class="card-content">' +
-          '<div class="credentials-info">' +
-            '<div class="credentials-icon">' + settingsIcon + '</div>' +
-            '<div class="credentials-text">' +
-              '<p class="settings-desc">' + this._t('configureCredentialsDesc') + '</p>' +
-              '<button class="primary-btn" data-action="open-integration-options">' + this._t('openIntegrationSettings') + '</button>' +
-            '</div>' +
-          '</div>' +
+    // Info card about cloud storage configuration
+    const infoIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M13,9H11V7H13M13,17H11V11H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg>';
+    let infoCard = '<div class="card settings-card info-card">' +
+      '<div class="card-content">' +
+        '<div class="info-row">' +
+          '<span class="info-icon">' + infoIcon + '</span>' +
+          '<p class="settings-desc" style="margin: 0;">' + this._t('cloudStorageInfoDesc') + '</p>' +
         '</div>' +
-      '</div>';
-    } else {
-      // Show compact configured message
-      const checkIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"/></svg>';
-      credentialsCard = '<div class="card settings-card">' +
-        '<div class="card-content">' +
-          '<div class="credentials-configured">' +
-            checkIcon +
-            '<span>' + this._t('credentialsConfigured') + '</span>' +
-            '<button class="text-btn" data-action="open-integration-options">' + this._t('openIntegrationSettings') + '</button>' +
-          '</div>' +
-        '</div>' +
-      '</div>';
-    }
+      '</div>' +
+    '</div>';
 
     return '<div class="page-header"><h1>' + this._t('settings') + '</h1></div>' +
       currentStorageCard +
       authSection +
       providersSection +
-      credentialsCard +
+      infoCard +
       this._renderSettingsStyles();
   }
 
@@ -1176,18 +1150,10 @@ class HomeProjectLedgerPanel extends HTMLElement {
       '.auth-code-input { flex: 1; }' +
       '.provider-item.active .secondary-btn { border-color: rgba(255,255,255,0.3); color: white; }' +
       '.provider-item.active .secondary-btn:hover { background: rgba(255,255,255,0.1); }' +
-      '.credentials-card { border: 2px dashed var(--primary-color); background: var(--primary-background-color); }' +
-      '.credentials-card .card-header { border-bottom: none; }' +
-      '.credentials-info { display: flex; gap: 16px; align-items: flex-start; }' +
-      '.credentials-icon { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; background: var(--primary-color); color: white; border-radius: 12px; flex-shrink: 0; }' +
-      '.credentials-icon svg { width: 24px; height: 24px; }' +
-      '.credentials-text { flex: 1; }' +
-      '.credentials-text p { margin: 0 0 12px 0; }' +
-      '.credentials-configured { display: flex; align-items: center; gap: 8px; color: var(--success-color, #4caf50); font-size: 14px; }' +
-      '.credentials-configured svg { width: 20px; height: 20px; }' +
-      '.credentials-configured .text-btn { margin-left: auto; }' +
-      '.text-btn { background: none; border: none; color: var(--primary-color); cursor: pointer; font-size: 14px; padding: 4px 8px; }' +
-      '.text-btn:hover { text-decoration: underline; }' +
+      '.info-card { background: var(--secondary-background-color); }' +
+      '.info-row { display: flex; align-items: flex-start; gap: 12px; }' +
+      '.info-icon { color: var(--primary-color); flex-shrink: 0; }' +
+      '.info-icon svg { width: 24px; height: 24px; }' +
     '</style>';
   }
 

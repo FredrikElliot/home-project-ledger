@@ -2,12 +2,19 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
-from .const import DOMAIN, STORAGE_KEY_CONFIG
+from .const import (
+    DOMAIN,
+    STORAGE_KEY_CONFIG,
+    STORAGE_PROVIDER_LOCAL,
+    STORAGE_PROVIDER_GOOGLE_DRIVE,
+    STORAGE_PROVIDER_DROPBOX,
+    STORAGE_PROVIDER_ONEDRIVE,
+)
 from .cloud_storage.base import (
     CloudStorageProvider,
     StorageConfig,
@@ -16,6 +23,9 @@ from .cloud_storage.base import (
 )
 from .cloud_storage.local import LocalStorageProvider
 from .cloud_storage.google_drive import GoogleDriveProvider
+
+if TYPE_CHECKING:
+    from homeassistant.helpers.config_entry_oauth2_flow import OAuth2Session
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,12 +38,8 @@ class CloudStorageManager:
     def __init__(
         self,
         hass: HomeAssistant,
-        google_client_id: Optional[str] = None,
-        google_client_secret: Optional[str] = None,
-        onedrive_client_id: Optional[str] = None,
-        onedrive_client_secret: Optional[str] = None,
-        dropbox_app_key: Optional[str] = None,
-        dropbox_app_secret: Optional[str] = None,
+        storage_provider: str = STORAGE_PROVIDER_LOCAL,
+        oauth_session: Optional["OAuth2Session"] = None,
     ):
         """Initialize the cloud storage manager."""
         self.hass = hass
@@ -41,13 +47,10 @@ class CloudStorageManager:
         self._config: StorageConfig = StorageConfig()
         self._provider: Optional[CloudStorageProvider] = None
         
-        # OAuth credentials for each provider
-        self._google_client_id = google_client_id
-        self._google_client_secret = google_client_secret
-        self._onedrive_client_id = onedrive_client_id
-        self._onedrive_client_secret = onedrive_client_secret
-        self._dropbox_app_key = dropbox_app_key
-        self._dropbox_app_secret = dropbox_app_secret
+        # Storage provider type from config entry
+        self._storage_provider = storage_provider
+        # OAuth session for cloud providers
+        self._oauth_session = oauth_session
     
     async def async_load(self) -> None:
         """Load configuration from storage."""
@@ -56,6 +59,16 @@ class CloudStorageManager:
             self._config = StorageConfig.from_dict(data)
         else:
             self._config = StorageConfig()
+        
+        # Set provider type based on config entry
+        if self._storage_provider == STORAGE_PROVIDER_GOOGLE_DRIVE:
+            self._config.provider = StorageProviderType.GOOGLE_DRIVE
+        elif self._storage_provider == STORAGE_PROVIDER_DROPBOX:
+            self._config.provider = StorageProviderType.DROPBOX
+        elif self._storage_provider == STORAGE_PROVIDER_ONEDRIVE:
+            self._config.provider = StorageProviderType.ONEDRIVE
+        else:
+            self._config.provider = StorageProviderType.LOCAL
         
         # Initialize the provider
         await self._init_provider()
@@ -73,12 +86,11 @@ class CloudStorageManager:
         
         provider_type = self._config.provider
         
-        if provider_type == StorageProviderType.GOOGLE_DRIVE:
+        if provider_type == StorageProviderType.GOOGLE_DRIVE and self._oauth_session:
             self._provider = GoogleDriveProvider(
                 self._config,
                 self.hass,
-                client_id=self._google_client_id,
-                client_secret=self._google_client_secret,
+                oauth_session=self._oauth_session,
             )
         elif provider_type == StorageProviderType.ONEDRIVE:
             # TODO: Implement OneDrive provider
@@ -109,6 +121,9 @@ class CloudStorageManager:
     
     def get_available_providers(self) -> list[dict[str, Any]]:
         """Get list of available storage providers with configuration status."""
+        # Check if we have an OAuth session (means cloud is configured)
+        has_oauth = self._oauth_session is not None
+        
         return [
             {
                 "type": StorageProviderType.LOCAL.value,
@@ -120,21 +135,21 @@ class CloudStorageManager:
             {
                 "type": StorageProviderType.GOOGLE_DRIVE.value,
                 "name": "Google Drive",
-                "configured": bool(self._google_client_id and self._google_client_secret),
+                "configured": has_oauth and self._storage_provider == STORAGE_PROVIDER_GOOGLE_DRIVE,
                 "available": True,
                 "description": "Store images in your Google Drive account",
             },
             {
                 "type": StorageProviderType.ONEDRIVE.value,
                 "name": "OneDrive",
-                "configured": bool(self._onedrive_client_id and self._onedrive_client_secret),
+                "configured": has_oauth and self._storage_provider == STORAGE_PROVIDER_ONEDRIVE,
                 "available": False,  # Not yet implemented
                 "description": "Store images in your Microsoft OneDrive account",
             },
             {
                 "type": StorageProviderType.DROPBOX.value,
                 "name": "Dropbox",
-                "configured": bool(self._dropbox_app_key and self._dropbox_app_secret),
+                "configured": has_oauth and self._storage_provider == STORAGE_PROVIDER_DROPBOX,
                 "available": False,  # Not yet implemented
                 "description": "Store images in your Dropbox account",
             },
@@ -203,12 +218,8 @@ class CloudStorageManager:
             if isinstance(self.provider, GoogleDriveProvider):
                 return await self.provider.delete_image(image_path)
             else:
-                # Create temporary provider to delete
-                temp_provider = GoogleDriveProvider(
-                    self._config, self.hass,
-                    self._google_client_id, self._google_client_secret
-                )
-                return await temp_provider.delete_image(image_path)
+                _LOGGER.warning("Cannot delete Google Drive image: no Google Drive provider configured")
+                return False
         elif image_path.startswith("/local/"):
             local_provider = LocalStorageProvider(self._config, self.hass)
             return await local_provider.delete_image(image_path)
@@ -221,11 +232,8 @@ class CloudStorageManager:
             if isinstance(self.provider, GoogleDriveProvider):
                 return await self.provider.get_image(image_path)
             else:
-                temp_provider = GoogleDriveProvider(
-                    self._config, self.hass,
-                    self._google_client_id, self._google_client_secret
-                )
-                return await temp_provider.get_image(image_path)
+                _LOGGER.warning("Cannot get Google Drive image: no Google Drive provider configured")
+                return None
         elif image_path.startswith("/local/"):
             local_provider = LocalStorageProvider(self._config, self.hass)
             return await local_provider.get_image(image_path)

@@ -9,6 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.components import panel_custom
+from homeassistant.helpers import config_entry_oauth2_flow
 
 from .const import (
     DOMAIN,
@@ -16,12 +17,10 @@ from .const import (
     PANEL_ICON,
     PANEL_TITLE,
     PANEL_URL,
-    CONF_GOOGLE_CLIENT_ID,
-    CONF_GOOGLE_CLIENT_SECRET,
-    CONF_ONEDRIVE_CLIENT_ID,
-    CONF_ONEDRIVE_CLIENT_SECRET,
-    CONF_DROPBOX_APP_KEY,
-    CONF_DROPBOX_APP_SECRET,
+    CONF_STORAGE_PROVIDER,
+    CONF_TOKEN,
+    STORAGE_PROVIDER_LOCAL,
+    STORAGE_PROVIDER_GOOGLE_DRIVE,
 )
 from .coordinator import ProjectLedgerCoordinator
 from .services import async_setup_services
@@ -83,18 +82,29 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = ProjectLedgerCoordinator(hass, storage)
     await coordinator.async_config_entry_first_refresh()
 
-    # Get credentials from both data and options (options override data)
-    all_config = {**entry.data, **entry.options}
+    # Get storage provider and token from entry data
+    storage_provider = entry.data.get(CONF_STORAGE_PROVIDER, STORAGE_PROVIDER_LOCAL)
+    oauth_token = entry.data.get("token")
     
-    # Initialize cloud storage manager with credentials from config entry
+    # Get OAuth implementation if using cloud storage
+    oauth_session = None
+    if storage_provider != STORAGE_PROVIDER_LOCAL and oauth_token:
+        try:
+            implementation = await config_entry_oauth2_flow.async_get_config_entry_implementation(
+                hass, entry
+            )
+            oauth_session = config_entry_oauth2_flow.OAuth2Session(
+                hass, entry, implementation
+            )
+            _LOGGER.debug("OAuth session created for provider: %s", storage_provider)
+        except Exception as err:
+            _LOGGER.warning("Failed to create OAuth session: %s", err)
+    
+    # Initialize cloud storage manager with OAuth session
     cloud_storage_manager = CloudStorageManager(
         hass,
-        google_client_id=all_config.get(CONF_GOOGLE_CLIENT_ID),
-        google_client_secret=all_config.get(CONF_GOOGLE_CLIENT_SECRET),
-        onedrive_client_id=all_config.get(CONF_ONEDRIVE_CLIENT_ID),
-        onedrive_client_secret=all_config.get(CONF_ONEDRIVE_CLIENT_SECRET),
-        dropbox_app_key=all_config.get(CONF_DROPBOX_APP_KEY),
-        dropbox_app_secret=all_config.get(CONF_DROPBOX_APP_SECRET),
+        storage_provider=storage_provider,
+        oauth_session=oauth_session,
     )
     await cloud_storage_manager.async_load()
 
@@ -122,27 +132,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Handle options update - reload cloud storage manager with new credentials."""
-    _LOGGER.info("Options updated, reloading cloud storage credentials")
-    
-    entry_data = hass.data.get(DOMAIN, {}).get(entry.entry_id)
-    if not entry_data:
-        return
-    
-    cloud_storage_manager = entry_data.get("cloud_storage_manager")
-    if not cloud_storage_manager:
-        return
-    
-    # Update credentials from new options
-    all_config = {**entry.data, **entry.options}
-    cloud_storage_manager._google_client_id = all_config.get(CONF_GOOGLE_CLIENT_ID)
-    cloud_storage_manager._google_client_secret = all_config.get(CONF_GOOGLE_CLIENT_SECRET)
-    cloud_storage_manager._onedrive_client_id = all_config.get(CONF_ONEDRIVE_CLIENT_ID)
-    cloud_storage_manager._onedrive_client_secret = all_config.get(CONF_ONEDRIVE_CLIENT_SECRET)
-    cloud_storage_manager._dropbox_app_key = all_config.get(CONF_DROPBOX_APP_KEY)
-    cloud_storage_manager._dropbox_app_secret = all_config.get(CONF_DROPBOX_APP_SECRET)
-    
-    _LOGGER.debug("Cloud storage credentials updated")
+    """Handle options update - update currency setting."""
+    _LOGGER.info("Options updated")
+    # Currently options only contain currency, no cloud credentials to update
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

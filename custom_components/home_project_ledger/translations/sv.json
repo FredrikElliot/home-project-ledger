@@ -3,34 +3,44 @@
     "step": {
       "user": {
         "title": "Konfigurera Home Project Ledger",
-        "description": "Konfigurera dina inställningar för hemprojektredovisning.",
+        "description": "Konfigurera dina inställningar för hemprojektredovisning och välj var kvittobilder ska lagras.",
         "data": {
-          "currency": "Standardvaluta (t.ex. SEK, USD, EUR)"
+          "currency": "Standardvaluta (t.ex. SEK, USD, EUR)",
+          "storage_provider": "Bildlagring"
         }
+      },
+      "credentials_needed": {
+        "title": "Applikationsuppgifter krävs",
+        "description": "För att använda {provider} måste du först lägga till applikationsuppgifter.\n\n1. Gå till **Inställningar → Enheter & tjänster → Applikationsuppgifter**\n2. Klicka på **Lägg till applikationsuppgifter**\n3. Välj **Home Project Ledger**\n4. Ange dina OAuth-uppgifter från leverantörens utvecklarkonsol\n5. Kom tillbaka hit och försök igen"
+      },
+      "auth": {
+        "title": "Auktorisera {provider}",
+        "description": "Auktorisera åtkomst till ditt molnlagringskonto."
       }
     },
     "error": {
       "already_configured": "Home Project Ledger är redan konfigurerad."
     },
     "abort": {
-      "already_configured": "Home Project Ledger är redan konfigurerad."
+      "already_configured": "Home Project Ledger är redan konfigurerad.",
+      "missing_credentials": "Applikationsuppgifter inte konfigurerade. Lägg till dem under Inställningar → Enheter & tjänster → Applikationsuppgifter.",
+      "oauth_error": "Fel vid OAuth-auktorisering. Försök igen.",
+      "no_code": "Ingen auktoriseringskod mottagen."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Molnlagringsinställningar",
-        "description": "Konfigurera inloggningsuppgifter för molnlagringsleverantörer. Hämta dessa från respektive utvecklarkonsol.",
+        "title": "Inställningar",
+        "description": "Nuvarande lagringsleverantör: {current_provider}. För att byta lagringsleverantör, ta bort och lägg till integrationen igen.",
         "data": {
-          "google_client_id": "Google Drive Klient-ID",
-          "google_client_secret": "Google Drive Klienthemlighet",
-          "dropbox_app_key": "Dropbox App-nyckel",
-          "dropbox_app_secret": "Dropbox App-hemlighet",
-          "onedrive_client_id": "OneDrive Klient-ID",
-          "onedrive_client_secret": "OneDrive Klienthemlighet"
+          "currency": "Standardvaluta"
         }
       }
     }
+  },
+  "application_credentials": {
+    "description": "Ange OAuth-uppgifter för molnlagringsleverantörer. Du behöver skapa en applikation i respektive utvecklarkonsol:\n\n- **Google Drive**: [Google Cloud Console](https://console.cloud.google.com/)\n- **Dropbox**: [Dropbox App Console](https://www.dropbox.com/developers/apps)\n- **OneDrive**: [Azure Portal](https://portal.azure.com/)"
   },
   "services": {
     "create_project": {

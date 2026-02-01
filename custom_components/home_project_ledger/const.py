@@ -37,10 +37,33 @@ PANEL_URL: Final = "home-project-ledger"
 PANEL_TITLE: Final = "Project Ledger"
 PANEL_ICON: Final = "mdi:notebook-edit"
 
-# Cloud Storage
-CONF_GOOGLE_CLIENT_ID: Final = "google_client_id"
-CONF_GOOGLE_CLIENT_SECRET: Final = "google_client_secret"
-CONF_ONEDRIVE_CLIENT_ID: Final = "onedrive_client_id"
-CONF_ONEDRIVE_CLIENT_SECRET: Final = "onedrive_client_secret"
-CONF_DROPBOX_APP_KEY: Final = "dropbox_app_key"
-CONF_DROPBOX_APP_SECRET: Final = "dropbox_app_secret"
+# Cloud Storage Provider Types
+STORAGE_PROVIDER_LOCAL: Final = "local"
+STORAGE_PROVIDER_GOOGLE_DRIVE: Final = "google_drive"
+STORAGE_PROVIDER_DROPBOX: Final = "dropbox"
+STORAGE_PROVIDER_ONEDRIVE: Final = "onedrive"
+
+# OAuth2 Scopes
+GOOGLE_DRIVE_SCOPES: Final = [
+    "https://www.googleapis.com/auth/drive.file",  # Access to files created by this app
+]
+DROPBOX_SCOPES: Final = [
+    "files.content.write",
+    "files.content.read",
+]
+ONEDRIVE_SCOPES: Final = [
+    "Files.ReadWrite.AppFolder",
+    "offline_access",
+]
+
+# OAuth2 Authorization URLs
+GOOGLE_AUTH_URL: Final = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_URL: Final = "https://oauth2.googleapis.com/token"
+DROPBOX_AUTH_URL: Final = "https://www.dropbox.com/oauth2/authorize"
+DROPBOX_TOKEN_URL: Final = "https://api.dropboxapi.com/oauth2/token"
+ONEDRIVE_AUTH_URL: Final = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+ONEDRIVE_TOKEN_URL: Final = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+
+# Config entry data keys
+CONF_STORAGE_PROVIDER: Final = "storage_provider"
+CONF_TOKEN: Final = "token"

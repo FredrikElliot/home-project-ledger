@@ -4,8 +4,7 @@ from __future__ import annotations
 import logging
 import json
 from datetime import datetime, timezone, timedelta
-from typing import Any, Optional
-from urllib.parse import urlencode
+from typing import Any, Optional, TYPE_CHECKING
 
 import aiohttp
 
@@ -13,25 +12,19 @@ from homeassistant.core import HomeAssistant
 
 from .base import CloudStorageProvider, StorageConfig, StorageProviderType, StorageStatus
 
+if TYPE_CHECKING:
+    from homeassistant.helpers.config_entry_oauth2_flow import OAuth2Session
+
 _LOGGER = logging.getLogger(__name__)
 
-# Google OAuth endpoints
-GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
-GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
-GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
+# Google API endpoints
 GOOGLE_DRIVE_API = "https://www.googleapis.com/drive/v3"
 GOOGLE_UPLOAD_API = "https://www.googleapis.com/upload/drive/v3"
-
-# Scopes needed for Google Drive
-GOOGLE_SCOPES = [
-    "https://www.googleapis.com/auth/drive.file",  # Access to files created by the app
-    "https://www.googleapis.com/auth/userinfo.email",  # User email
-    "https://www.googleapis.com/auth/userinfo.profile",  # User profile
-]
+GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
 
 
 class GoogleDriveProvider(CloudStorageProvider):
-    """Google Drive storage provider."""
+    """Google Drive storage provider using OAuth2Session."""
     
     provider_type = StorageProviderType.GOOGLE_DRIVE
     
@@ -39,22 +32,14 @@ class GoogleDriveProvider(CloudStorageProvider):
         self, 
         config: StorageConfig, 
         hass: HomeAssistant,
-        client_id: Optional[str] = None,
-        client_secret: Optional[str] = None,
+        oauth_session: Optional["OAuth2Session"] = None,
     ):
         """Initialize Google Drive provider."""
         super().__init__(config)
         self.hass = hass
-        self.client_id = client_id
-        self.client_secret = client_secret
+        self._oauth_session = oauth_session
         self._folder_id: Optional[str] = None
         self._session: Optional[aiohttp.ClientSession] = None
-    
-    @property
-    def _redirect_uri(self) -> str:
-        """Get the OAuth redirect URI."""
-        # Use Home Assistant's external URL for the callback
-        return f"{self.hass.config.external_url or 'http://homeassistant.local:8123'}/api/home_project_ledger/oauth/callback"
     
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create aiohttp session."""
@@ -62,121 +47,37 @@ class GoogleDriveProvider(CloudStorageProvider):
             self._session = aiohttp.ClientSession()
         return self._session
     
-    async def _refresh_token_if_needed(self) -> bool:
-        """Refresh the access token if expired."""
-        if not self.config.token_expiry or not self.config.refresh_token:
-            return False
-        
-        try:
-            expiry = datetime.fromisoformat(self.config.token_expiry)
-            # Refresh if token expires in less than 5 minutes
-            if expiry > datetime.now(timezone.utc) + timedelta(minutes=5):
-                return True  # Token still valid
-        except (ValueError, TypeError):
-            pass
-        
-        # Need to refresh
-        return await self._do_refresh_token()
-    
-    async def _do_refresh_token(self) -> bool:
-        """Perform token refresh."""
-        if not self.client_id or not self.client_secret or not self.config.refresh_token:
-            return False
-        
-        try:
-            session = await self._get_session()
-            async with session.post(
-                GOOGLE_TOKEN_URL,
-                data={
-                    "client_id": self.client_id,
-                    "client_secret": self.client_secret,
-                    "refresh_token": self.config.refresh_token,
-                    "grant_type": "refresh_token",
-                },
-            ) as response:
-                if response.status != 200:
-                    _LOGGER.error("Failed to refresh Google token: %s", await response.text())
-                    return False
-                
-                data = await response.json()
-                self.config.access_token = data["access_token"]
-                expires_in = data.get("expires_in", 3600)
-                self.config.token_expiry = (
-                    datetime.now(timezone.utc) + timedelta(seconds=expires_in)
-                ).isoformat()
-                
-                # Refresh token might be updated
-                if "refresh_token" in data:
-                    self.config.refresh_token = data["refresh_token"]
-                
-                _LOGGER.debug("Successfully refreshed Google Drive token")
-                return True
-                
-        except Exception as e:
-            _LOGGER.error("Error refreshing Google token: %s", e)
-            return False
-    
-    def get_auth_url(self) -> Optional[str]:
-        """Get the Google OAuth authorization URL."""
-        if not self.client_id:
+    async def _get_access_token(self) -> Optional[str]:
+        """Get a valid access token from the OAuth session."""
+        if not self._oauth_session:
+            _LOGGER.error("No OAuth session available")
             return None
         
-        params = {
-            "client_id": self.client_id,
-            "redirect_uri": self._redirect_uri,
-            "response_type": "code",
-            "scope": " ".join(GOOGLE_SCOPES),
-            "access_type": "offline",
-            "prompt": "consent",  # Always show consent to get refresh token
-        }
-        return f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
+        try:
+            # OAuth2Session handles token refresh automatically
+            await self._oauth_session.async_ensure_token_valid()
+            return self._oauth_session.token.get("access_token")
+        except Exception as e:
+            _LOGGER.error("Error getting access token: %s", e)
+            return None
+    
+    def get_auth_url(self) -> Optional[str]:
+        """Get the OAuth authorization URL (not used with OAuth2Session)."""
+        # OAuth flow is handled by Home Assistant's config flow
+        return None
     
     async def authenticate(self, auth_code: Optional[str] = None) -> bool:
-        """Authenticate with Google Drive."""
-        if not auth_code:
-            return False
-        
-        if not self.client_id or not self.client_secret:
-            _LOGGER.error("Google Drive client credentials not configured")
-            return False
-        
-        try:
-            session = await self._get_session()
-            async with session.post(
-                GOOGLE_TOKEN_URL,
-                data={
-                    "client_id": self.client_id,
-                    "client_secret": self.client_secret,
-                    "code": auth_code,
-                    "redirect_uri": self._redirect_uri,
-                    "grant_type": "authorization_code",
-                },
-            ) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    _LOGGER.error("Failed to exchange auth code: %s", error_text)
-                    return False
-                
-                data = await response.json()
-                self.config.access_token = data["access_token"]
-                self.config.refresh_token = data.get("refresh_token")
-                expires_in = data.get("expires_in", 3600)
-                self.config.token_expiry = (
-                    datetime.now(timezone.utc) + timedelta(seconds=expires_in)
-                ).isoformat()
-                
-                _LOGGER.info("Successfully authenticated with Google Drive")
-                return True
-                
-        except Exception as e:
-            _LOGGER.error("Error during Google authentication: %s", e)
-            return False
+        """Authenticate with Google Drive (not used with OAuth2Session)."""
+        # Authentication is handled by Home Assistant's config flow
+        return self._oauth_session is not None
     
-    async def _get_headers(self) -> dict[str, str]:
+    async def _get_headers(self) -> Optional[dict[str, str]]:
         """Get authorization headers."""
-        await self._refresh_token_if_needed()
+        token = await self._get_access_token()
+        if not token:
+            return None
         return {
-            "Authorization": f"Bearer {self.config.access_token}",
+            "Authorization": f"Bearer {token}",
         }
     
     async def _ensure_folder(self) -> Optional[str]:
@@ -185,6 +86,10 @@ class GoogleDriveProvider(CloudStorageProvider):
             return self._folder_id
         
         headers = await self._get_headers()
+        if not headers:
+            _LOGGER.error("Cannot ensure folder: no valid access token")
+            return None
+        
         session = await self._get_session()
         
         # Parse folder path
@@ -240,6 +145,9 @@ class GoogleDriveProvider(CloudStorageProvider):
             raise Exception("Failed to ensure Google Drive folder")
         
         headers = await self._get_headers()
+        if not headers:
+            raise Exception("No valid access token")
+        
         session = await self._get_session()
         
         # Determine mime type from filename
@@ -299,6 +207,10 @@ class GoogleDriveProvider(CloudStorageProvider):
             file_id = parts[0]
             
             headers = await self._get_headers()
+            if not headers:
+                _LOGGER.error("Cannot delete: no valid access token")
+                return False
+            
             session = await self._get_session()
             
             async with session.delete(
@@ -326,6 +238,10 @@ class GoogleDriveProvider(CloudStorageProvider):
             file_id = parts[0]
             
             headers = await self._get_headers()
+            if not headers:
+                _LOGGER.error("Cannot get image: no valid access token")
+                return None
+            
             session = await self._get_session()
             
             async with session.get(
@@ -366,12 +282,16 @@ class GoogleDriveProvider(CloudStorageProvider):
             provider_name="Google Drive",
         )
         
-        if not self.config.access_token:
+        if not self._oauth_session:
             status.error = "Not authenticated"
             return status
         
         try:
             headers = await self._get_headers()
+            if not headers:
+                status.error = "Cannot get access token"
+                return status
+            
             session = await self._get_session()
             
             # Get user info
@@ -423,11 +343,14 @@ class GoogleDriveProvider(CloudStorageProvider):
     
     async def test_connection(self) -> bool:
         """Test Google Drive connection."""
-        if not self.config.access_token:
+        if not self._oauth_session:
             return False
         
         try:
             headers = await self._get_headers()
+            if not headers:
+                return False
+            
             session = await self._get_session()
             
             async with session.get(GOOGLE_USERINFO_URL, headers=headers) as response:
@@ -438,7 +361,7 @@ class GoogleDriveProvider(CloudStorageProvider):
     
     def is_configured(self) -> bool:
         """Check if Google Drive is properly configured."""
-        return bool(self.client_id and self.client_secret)
+        return self._oauth_session is not None
     
     def needs_reauth(self) -> bool:
         """Check if re-authentication is needed."""
