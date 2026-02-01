@@ -887,10 +887,14 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .timeline-chart-labels { display: flex; justify-content: space-between; padding: 8px 4px 0 4px; font-size: 10px; color: var(--secondary-text-color, #757575); }
         @media (min-width: 600px) { .timeline-chart-labels { font-size: 11px; } }
         .timeline-chart-label { fill: var(--secondary-text-color, #757575); font-size: 10px; }
-        .timeline-chart-tooltip { position: absolute; background-color: var(--card-background-color, #fff); border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); padding: 8px 12px; font-size: 12px; pointer-events: none; z-index: 10; white-space: nowrap; transform: translate(-50%, -100%); margin-top: -10px; display: none; }
+        .timeline-chart-tooltip { position: absolute; background-color: var(--card-background-color, #fff); border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); padding: 10px 14px; font-size: 12px; pointer-events: none; z-index: 10; white-space: nowrap; transform: translate(-50%, -100%); margin-top: -10px; display: none; min-width: 140px; }
         .timeline-chart-tooltip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: var(--card-background-color, #fff); }
-        .timeline-chart-tooltip-value { font-weight: 500; color: var(--primary-text-color, #212121); }
-        .timeline-chart-tooltip-label { color: var(--secondary-text-color, #757575); margin-top: 2px; }
+        .timeline-chart-tooltip-value { font-size: 16px; font-weight: 600; color: var(--primary-color, #03a9f4); margin: 4px 0 8px 0; }
+        .timeline-chart-tooltip-label { font-weight: 500; color: var(--primary-text-color, #212121); }
+        .timeline-chart-tooltip-projects { border-top: 1px solid var(--divider-color, #e0e0e0); margin-top: 8px; padding-top: 8px; }
+        .timeline-chart-tooltip-project { display: flex; justify-content: space-between; gap: 16px; padding: 3px 0; }
+        .timeline-chart-tooltip-project .project-name { color: var(--secondary-text-color, #757575); font-size: 11px; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+        .timeline-chart-tooltip-project .project-amount { color: var(--primary-text-color, #212121); font-weight: 500; font-size: 11px; }
         
         /* Budget Health Cards */
         .budget-health-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
@@ -1467,17 +1471,33 @@ class HomeProjectLedgerPanel extends HTMLElement {
     const now = new Date();
     const period = this._state.dashboardPeriod || 'allTime';
     
-    // Helper to add receipts to map
+    // Helper to add receipts to map with project breakdown
     const addReceipts = (keyFn) => {
       receipts.forEach(r => {
         if (r.date) {
           const key = keyFn(r.date);
           if (map.has(key)) {
-            map.get(key).value += r.total || 0;
+            const entry = map.get(key);
+            entry.value += r.total || 0;
+            // Track by project
+            const projectName = r.project_name || this._t('unknown');
+            if (!entry.projects[projectName]) {
+              entry.projects[projectName] = 0;
+            }
+            entry.projects[projectName] += r.total || 0;
           }
         }
       });
     };
+    
+    // Helper to create a new data entry
+    const createEntry = (key, date, label) => ({
+      key,
+      date,
+      value: 0,
+      label,
+      projects: {}, // { projectName: amount }
+    });
     
     switch (period) {
       case 'thisMonth': {
@@ -1486,7 +1506,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         for (let i = 1; i <= daysInMonth; i++) {
           const d = new Date(now.getFullYear(), now.getMonth(), i);
           const key = d.toISOString().substring(0, 10); // YYYY-MM-DD
-          map.set(key, { key, date: d, value: 0, label: i.toString() });
+          map.set(key, createEntry(key, d, i.toString()));
         }
         addReceipts(date => date.substring(0, 10));
         return Array.from(map.values());
@@ -1498,7 +1518,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         for (let i = 1; i <= lastMonthDays; i++) {
           const d = new Date(now.getFullYear(), now.getMonth() - 1, i);
           const key = d.toISOString().substring(0, 10);
-          map.set(key, { key, date: d, value: 0, label: i.toString() });
+          map.set(key, createEntry(key, d, i.toString()));
         }
         addReceipts(date => date.substring(0, 10));
         return Array.from(map.values());
@@ -1509,7 +1529,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         for (let i = 2; i >= 0; i--) {
           const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
           const key = d.toISOString().substring(0, 7); // YYYY-MM
-          map.set(key, { key, date: d, value: 0, label: this._formatMonth(d) });
+          map.set(key, createEntry(key, d, this._formatMonth(d)));
         }
         addReceipts(date => date.substring(0, 7));
         return Array.from(map.values());
@@ -1520,7 +1540,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         for (let m = 0; m <= now.getMonth(); m++) {
           const d = new Date(now.getFullYear(), m, 1);
           const key = d.toISOString().substring(0, 7); // YYYY-MM
-          map.set(key, { key, date: d, value: 0, label: this._formatMonth(d) });
+          map.set(key, createEntry(key, d, this._formatMonth(d)));
         }
         addReceipts(date => date.substring(0, 7));
         return Array.from(map.values());
@@ -1541,7 +1561,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
             const d = new Date(startDate);
             d.setDate(d.getDate() + i);
             const key = d.toISOString().substring(0, 10);
-            map.set(key, { key, date: new Date(d), value: 0, label: d.getDate().toString() });
+            map.set(key, createEntry(key, new Date(d), d.getDate().toString()));
           }
           addReceipts(date => date.substring(0, 10));
         } else {
@@ -1549,7 +1569,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
           let current = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
           while (current <= endDate) {
             const key = current.toISOString().substring(0, 7);
-            map.set(key, { key, date: new Date(current), value: 0, label: this._formatMonth(current) });
+            map.set(key, createEntry(key, new Date(current), this._formatMonth(current)));
             current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
           }
           addReceipts(date => date.substring(0, 7));
@@ -1563,7 +1583,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         for (let i = 11; i >= 0; i--) {
           const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
           const key = d.toISOString().substring(0, 7); // YYYY-MM
-          map.set(key, { key, date: d, value: 0, label: this._formatMonth(d) });
+          map.set(key, createEntry(key, d, this._formatMonth(d)));
         }
         addReceipts(date => date.substring(0, 7));
         return Array.from(map.values());
@@ -1695,6 +1715,9 @@ class HomeProjectLedgerPanel extends HTMLElement {
       const gridColor = styles.getPropertyValue('--divider-color').trim() || '#e0e0e0';
       const bgColor = styles.getPropertyValue('--card-background-color').trim() || '#ffffff';
       
+      // Store reference for tooltip formatting
+      const self = this;
+      
       // Create chart
       const chart = root.container.children.push(am5xy.XYChart.new(root, {
         panX: false,
@@ -1705,11 +1728,12 @@ class HomeProjectLedgerPanel extends HTMLElement {
         paddingRight: 0,
       }));
       
-      // Prepare data with proper date objects
+      // Prepare data with project breakdown
       const chartData = this._timelineChartData.map(d => ({
         category: d.label,
         value: d.value,
         date: d.date || new Date(),
+        projects: d.projects || {},
       }));
       
       // Create X axis
@@ -1750,6 +1774,55 @@ class HomeProjectLedgerPanel extends HTMLElement {
         strokeDasharray: [4, 4],
       });
       
+      // Create tooltip with project breakdown
+      const tooltip = am5.Tooltip.new(root, {
+        pointerOrientation: "vertical",
+        getFillFromSprite: false,
+        getStrokeFromSprite: false,
+      });
+      
+      // Custom tooltip content with project breakdown
+      tooltip.label.adapters.add("html", (html, target) => {
+        const dataItem = target.dataItem;
+        if (!dataItem) return "";
+        
+        const data = dataItem.dataContext;
+        const total = self._formatCurrency(data.value);
+        const projects = data.projects || {};
+        const projectNames = Object.keys(projects).sort((a, b) => projects[b] - projects[a]);
+        
+        let content = '<div style="font-size:13px;font-weight:500;margin-bottom:6px;color:' + textColor + '">' + data.category + '</div>';
+        content += '<div style="font-size:14px;font-weight:600;color:' + primaryColor + ';margin-bottom:8px">' + total + '</div>';
+        
+        if (projectNames.length > 0) {
+          content += '<div style="border-top:1px solid ' + gridColor + ';padding-top:6px;margin-top:2px">';
+          projectNames.forEach(name => {
+            const amount = self._formatCurrency(projects[name]);
+            content += '<div style="display:flex;justify-content:space-between;gap:16px;font-size:12px;padding:2px 0">' +
+              '<span style="color:' + secondaryTextColor + '">' + self._escapeHtml(name) + '</span>' +
+              '<span style="color:' + textColor + ';font-weight:500">' + amount + '</span>' +
+            '</div>';
+          });
+          content += '</div>';
+        } else {
+          content += '<div style="font-size:11px;color:' + secondaryTextColor + '">' + self._t('noDataYet') + '</div>';
+        }
+        
+        return content;
+      });
+      
+      tooltip.get("background").setAll({
+        fill: am5.color(bgColor),
+        fillOpacity: 0.98,
+        stroke: am5.color(gridColor),
+        strokeWidth: 1,
+        shadowColor: am5.color(0x000000),
+        shadowBlur: 8,
+        shadowOffsetX: 0,
+        shadowOffsetY: 2,
+        shadowOpacity: 0.15,
+      });
+      
       // Create series with smooth line
       const series = chart.series.push(am5xy.SmoothedXLineSeries.new(root, {
         name: this._t('spendingTimeline'),
@@ -1758,10 +1831,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         valueYField: "value",
         categoryXField: "category",
         tension: 0.3,
-        tooltip: am5.Tooltip.new(root, {
-          labelText: "{category}: " + this._state.currency + " {valueY}",
-          pointerOrientation: "vertical",
-        }),
+        tooltip: tooltip,
       }));
       
       // Style the line
@@ -1777,32 +1847,26 @@ class HomeProjectLedgerPanel extends HTMLElement {
         fill: am5.color(primaryColor),
       });
       
-      // Add bullets (dots)
+      // Add bullets (dots) - larger and hoverable
       series.bullets.push(() => {
+        const circle = am5.Circle.new(root, {
+          radius: 5,
+          fill: am5.color(bgColor),
+          stroke: am5.color(primaryColor),
+          strokeWidth: 2,
+          cursorOverStyle: "pointer",
+        });
+        
+        // Highlight on hover
+        circle.states.create("hover", {
+          radius: 7,
+          fill: am5.color(primaryColor),
+        });
+        
         return am5.Bullet.new(root, {
-          sprite: am5.Circle.new(root, {
-            radius: 4,
-            fill: am5.color(bgColor),
-            stroke: am5.color(primaryColor),
-            strokeWidth: 2,
-          }),
+          sprite: circle,
         });
       });
-      
-      // Style tooltip
-      const tooltip = series.get("tooltip");
-      if (tooltip) {
-        tooltip.get("background").setAll({
-          fill: am5.color(bgColor),
-          fillOpacity: 0.95,
-          stroke: am5.color(gridColor),
-          strokeWidth: 1,
-        });
-        tooltip.label.setAll({
-          fill: am5.color(textColor),
-          fontSize: 12,
-        });
-      }
       
       // Set data
       series.data.setAll(chartData);
@@ -1834,7 +1898,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
     const points = data.map((d, i) => {
       const x = paddingX + (i / Math.max(data.length - 1, 1)) * chartWidth;
       const y = paddingTop + chartHeight - (d.value / maxValue) * chartHeight;
-      return { x, y, value: d.value, label: d.label };
+      return { x, y, value: d.value, label: d.label, projects: d.projects || {} };
     });
     
     // Create smooth curve using catmull-rom spline
@@ -1849,7 +1913,9 @@ class HomeProjectLedgerPanel extends HTMLElement {
     
     let dotsHtml = '';
     points.forEach((p, i) => {
-      dotsHtml += '<circle class="timeline-chart-dot" cx="' + p.x.toFixed(2) + '" cy="' + p.y.toFixed(2) + '" r="4" data-index="' + i + '" data-value="' + this._formatCurrency(p.value) + '" data-label="' + p.label + '"/>';
+      // Encode projects as JSON in data attribute
+      const projectsJson = JSON.stringify(p.projects).replace(/"/g, '&quot;');
+      dotsHtml += '<circle class="timeline-chart-dot" cx="' + p.x.toFixed(2) + '" cy="' + p.y.toFixed(2) + '" r="5" data-index="' + i + '" data-value="' + this._formatCurrency(p.value) + '" data-label="' + p.label + '" data-projects="' + projectsJson + '"/>';
     });
     
     let labelsHtml = '';
@@ -1875,7 +1941,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
       labelsHtml +
     '</svg>';
     
-    // Add tooltip functionality
+    // Add tooltip functionality with project breakdown
     this._addChartTooltips(container);
   }
   
@@ -1908,11 +1974,18 @@ class HomeProjectLedgerPanel extends HTMLElement {
   _addChartTooltips(container) {
     const dots = container.querySelectorAll('.timeline-chart-dot');
     let tooltip = null;
+    const self = this;
     
     dots.forEach(dot => {
       dot.addEventListener('mouseenter', (e) => {
         const value = dot.getAttribute('data-value');
         const label = dot.getAttribute('data-label');
+        let projects = {};
+        try {
+          projects = JSON.parse(dot.getAttribute('data-projects') || '{}');
+        } catch (e) {}
+        
+        const projectNames = Object.keys(projects).sort((a, b) => projects[b] - projects[a]);
         
         if (!tooltip) {
           tooltip = document.createElement('div');
@@ -1920,13 +1993,27 @@ class HomeProjectLedgerPanel extends HTMLElement {
           container.appendChild(tooltip);
         }
         
-        tooltip.innerHTML = '<div class="timeline-chart-tooltip-value">' + value + '</div>' +
-          '<div class="timeline-chart-tooltip-label">' + label + '</div>';
+        // Build tooltip content with project breakdown
+        let content = '<div class="timeline-chart-tooltip-label">' + label + '</div>';
+        content += '<div class="timeline-chart-tooltip-value">' + value + '</div>';
         
-        const rect = container.getBoundingClientRect();
+        if (projectNames.length > 0) {
+          content += '<div class="timeline-chart-tooltip-projects">';
+          projectNames.forEach(name => {
+            const amount = self._formatCurrency(projects[name]);
+            content += '<div class="timeline-chart-tooltip-project">' +
+              '<span class="project-name">' + self._escapeHtml(name) + '</span>' +
+              '<span class="project-amount">' + amount + '</span>' +
+            '</div>';
+          });
+          content += '</div>';
+        }
+        
+        tooltip.innerHTML = content;
+        
+        const svgRect = container.querySelector('svg').getBoundingClientRect();
         const cx = parseFloat(dot.getAttribute('cx'));
         const cy = parseFloat(dot.getAttribute('cy'));
-        const svgRect = container.querySelector('svg').getBoundingClientRect();
         const scaleX = svgRect.width / 400;
         const scaleY = svgRect.height / 200;
         
