@@ -18,9 +18,7 @@ from .const import (
     PANEL_TITLE,
     PANEL_URL,
     CONF_STORAGE_PROVIDER,
-    CONF_TOKEN,
     STORAGE_PROVIDER_LOCAL,
-    STORAGE_PROVIDER_GOOGLE_DRIVE,
 )
 from .coordinator import ProjectLedgerCoordinator
 from .services import async_setup_services

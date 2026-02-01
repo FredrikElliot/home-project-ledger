@@ -23,7 +23,9 @@ from .const import (
     SERVICE_CREATE_PROJECT,
     SERVICE_DELETE_PROJECT,
     SERVICE_DELETE_RECEIPT,
+    SERVICE_GET_STORAGE_STATUS,
     SERVICE_REOPEN_PROJECT,
+    SERVICE_SET_STORAGE_CONFIG,
     SERVICE_UPDATE_PROJECT,
     SERVICE_UPDATE_RECEIPT,
     STATUS_CLOSED,
@@ -32,6 +34,7 @@ from .const import (
 from .coordinator import ProjectLedgerCoordinator
 from .models import Project, Receipt
 from .storage import ProjectLedgerStorage
+from .cloud_storage.base import StorageProviderType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,6 +46,8 @@ SERVICE_CREATE_PROJECT_SCHEMA = vol.Schema(
     {
         vol.Required("name"): cv.string,
         vol.Optional("area_id"): cv.string,
+        vol.Optional("budget"): vol.Coerce(float),
+        vol.Optional("budget_by_category"): vol.Schema({cv.string: vol.Coerce(float)}),
     }
 )
 
@@ -51,6 +56,8 @@ SERVICE_UPDATE_PROJECT_SCHEMA = vol.Schema(
         vol.Required("project_id"): cv.string,
         vol.Optional("name"): cv.string,
         vol.Optional("area_id"): vol.Any(cv.string, None),  # Allow None to clear area
+        vol.Optional("budget"): vol.Any(vol.Coerce(float), None),  # Allow None to clear budget
+        vol.Optional("budget_by_category"): vol.Any(vol.Schema({cv.string: vol.Coerce(float)}), None),
     }
 )
 
@@ -79,7 +86,10 @@ SERVICE_ADD_RECEIPT_SCHEMA = vol.Schema(
         vol.Required("date"): cv.string,
         vol.Required("total"): vol.Coerce(float),
         vol.Optional("currency", default=DEFAULT_CURRENCY): cv.string,
-        vol.Optional("category_summary"): cv.string,
+        vol.Optional("category_summary"): cv.string,  # Legacy single category
+        vol.Optional("categories"): vol.All(cv.ensure_list, [cv.string]),  # Multiple categories
+        vol.Optional("category_split"): vol.Schema({cv.string: vol.Coerce(float)}),  # Category -> amount/percentage
+        vol.Optional("category_split_type"): vol.In(["absolute", "percentage"]),  # Split type
         vol.Optional("image_data"): cv.string,  # Base64 encoded image (single, legacy)
         vol.Optional("image_filename"): cv.string,
         vol.Optional("images"): vol.All(  # Multiple images array
@@ -99,7 +109,10 @@ SERVICE_UPDATE_RECEIPT_SCHEMA = vol.Schema(
         vol.Optional("date"): cv.string,
         vol.Optional("total"): vol.Coerce(float),
         vol.Optional("currency"): cv.string,
-        vol.Optional("category_summary"): cv.string,
+        vol.Optional("category_summary"): cv.string,  # Legacy single category
+        vol.Optional("categories"): vol.Any(vol.All(cv.ensure_list, [cv.string]), None),  # Multiple categories
+        vol.Optional("category_split"): vol.Any(vol.Schema({cv.string: vol.Coerce(float)}), None),
+        vol.Optional("category_split_type"): vol.Any(vol.In(["absolute", "percentage"]), None),
         vol.Optional("images"): vol.All(  # Multiple images array (replaces existing)
             cv.ensure_list,
             [vol.Schema({
@@ -124,6 +137,20 @@ SERVICE_DELETE_RECEIPT_SCHEMA = vol.Schema(
     }
 )
 
+SERVICE_SET_STORAGE_CONFIG_SCHEMA = vol.Schema(
+    {
+        vol.Optional("provider"): vol.In([p.value for p in StorageProviderType]),
+        vol.Optional("auth_code"): cv.string,  # OAuth authorization code
+        vol.Optional("disconnect"): cv.boolean,  # Disconnect cloud storage
+        vol.Optional("webdav_url"): cv.string,  # WebDAV server URL
+        vol.Optional("webdav_username"): cv.string,
+        vol.Optional("webdav_password"): cv.string,
+        vol.Optional("folder_path"): cv.string,  # Custom folder path in cloud
+    }
+)
+
+SERVICE_GET_STORAGE_STATUS_SCHEMA = vol.Schema({})
+
 
 async def async_setup_services(
     hass: HomeAssistant,
@@ -137,10 +164,17 @@ async def async_setup_services(
         """Handle create_project service call."""
         name = call.data["name"]
         area_id = call.data.get("area_id")
+        budget = call.data.get("budget")
+        budget_by_category = call.data.get("budget_by_category")
 
         _LOGGER.debug("Creating project: %s (area: %s)", name, area_id)
 
-        project = Project.create(name=name, area_id=area_id)
+        project = Project.create(
+            name=name,
+            area_id=area_id,
+            budget=budget,
+            budget_by_category=budget_by_category,
+        )
         await storage.async_add_project(project)
         await coordinator.async_refresh_data()
 
@@ -163,6 +197,10 @@ async def async_setup_services(
             project.name = name
         if "area_id" in call.data:  # Check if key exists (allows setting to None)
             project.area_id = area_id if area_id else None
+        if "budget" in call.data:  # Check if key exists (allows setting to None)
+            project.budget = call.data.get("budget")
+        if "budget_by_category" in call.data:  # Check if key exists (allows setting to None)
+            project.budget_by_category = call.data.get("budget_by_category")
 
         await storage.async_update_project(project)
         await coordinator.async_refresh_data()
@@ -297,6 +335,9 @@ async def async_setup_services(
         total = call.data["total"]
         currency = call.data.get("currency", DEFAULT_CURRENCY)
         category_summary = call.data.get("category_summary")
+        categories = call.data.get("categories")
+        category_split = call.data.get("category_split")
+        category_split_type = call.data.get("category_split_type")
         
         # Legacy single image support
         image_data = call.data.get("image_data")
@@ -339,6 +380,9 @@ async def async_setup_services(
             image_path=image_paths[0] if image_paths else None,  # Legacy compatibility
             image_paths=image_paths,
             category_summary=category_summary,
+            categories=categories,
+            category_split=category_split,
+            category_split_type=category_split_type,
         )
 
         await storage.async_add_receipt(receipt)
@@ -367,6 +411,12 @@ async def async_setup_services(
             receipt.currency = call.data["currency"]
         if "category_summary" in call.data:
             receipt.category_summary = call.data["category_summary"]
+        if "categories" in call.data:
+            receipt.categories = call.data.get("categories")
+        if "category_split" in call.data:
+            receipt.category_split = call.data.get("category_split")
+        if "category_split_type" in call.data:
+            receipt.category_split_type = call.data.get("category_split_type")
 
         # Handle image removal
         remove_paths = call.data.get("remove_image_paths", [])
@@ -441,6 +491,92 @@ async def async_setup_services(
 
         _LOGGER.info("Deleted receipt: %s (and %d images)", receipt_id, len(all_paths))
 
+    async def handle_set_storage_config(call: ServiceCall) -> dict:
+        """Handle set_storage_config service call."""
+        if not cloud_storage_manager:
+            raise ServiceValidationError("Cloud storage manager not initialized")
+
+        # Check if disconnecting
+        if call.data.get("disconnect"):
+            await cloud_storage_manager.disconnect()
+            _LOGGER.info("Disconnected cloud storage")
+            return {"success": True, "message": "Disconnected from cloud storage"}
+
+        # Check if setting provider
+        provider_str = call.data.get("provider")
+        if provider_str:
+            try:
+                provider = StorageProviderType(provider_str)
+                await cloud_storage_manager.set_provider(provider)
+                _LOGGER.info("Set storage provider to: %s", provider.value)
+            except ValueError:
+                raise ServiceValidationError(f"Invalid provider: {provider_str}")
+
+        # Check if authenticating with OAuth code
+        auth_code = call.data.get("auth_code")
+        if auth_code:
+            success = await cloud_storage_manager.authenticate(auth_code)
+            if not success:
+                raise ServiceValidationError("Authentication failed")
+            _LOGGER.info("Authenticated with cloud storage")
+            return {"success": True, "message": "Authentication successful"}
+
+        # Check if setting WebDAV credentials
+        webdav_url = call.data.get("webdav_url")
+        if webdav_url:
+            cloud_storage_manager.set_webdav_credentials(
+                url=webdav_url,
+                username=call.data.get("webdav_username", ""),
+                password=call.data.get("webdav_password", ""),
+            )
+            await cloud_storage_manager.async_save()
+            _LOGGER.info("Set WebDAV credentials")
+
+        # Check if setting folder path
+        folder_path = call.data.get("folder_path")
+        if folder_path:
+            cloud_storage_manager.config.folder_path = folder_path
+            await cloud_storage_manager.async_save()
+            _LOGGER.info("Set folder path to: %s", folder_path)
+
+        return {"success": True}
+
+    async def handle_get_storage_status(call: ServiceCall) -> dict:
+        """Handle get_storage_status service call."""
+        if not cloud_storage_manager:
+            return {
+                "provider": "local",
+                "provider_name": "Local Storage",
+                "connected": True,
+                "authenticated": True,
+                "providers": [{
+                    "type": "local",
+                    "name": "Local Storage",
+                    "configured": True,
+                    "available": True,
+                }],
+            }
+
+        status = await cloud_storage_manager.get_status()
+        providers = cloud_storage_manager.get_available_providers()
+        
+        # Get auth URL if OAuth provider needs authentication
+        auth_url = None
+        if not status.authenticated and status.provider_type.value != "local":
+            auth_url = cloud_storage_manager.get_auth_url()
+
+        return {
+            "provider": status.provider_type.value,
+            "provider_name": status.provider_name,
+            "connected": status.connected,
+            "authenticated": status.authenticated,
+            "storage_used": status.storage_used,
+            "storage_total": status.storage_total,
+            "error": status.error,
+            "auth_url": auth_url,
+            "providers": providers,
+        }
+
     # Register services
     hass.services.async_register(
         DOMAIN,
@@ -496,6 +632,20 @@ async def async_setup_services(
         SERVICE_DELETE_RECEIPT,
         handle_delete_receipt,
         schema=SERVICE_DELETE_RECEIPT_SCHEMA,
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SET_STORAGE_CONFIG,
+        handle_set_storage_config,
+        schema=SERVICE_SET_STORAGE_CONFIG_SCHEMA,
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_GET_STORAGE_STATUS,
+        handle_get_storage_status,
+        schema=SERVICE_GET_STORAGE_STATUS_SCHEMA,
     )
 
     _LOGGER.info("Registered Home Project Ledger services")

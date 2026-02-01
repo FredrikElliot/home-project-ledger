@@ -16,6 +16,23 @@ create_project:
       example: "kitchen"
       selector:
         area:
+    budget:
+      name: Budget
+      description: Total budget for the project (optional)
+      required: false
+      example: 50000
+      selector:
+        number:
+          min: 0
+          step: 0.01
+          mode: box
+    budget_by_category:
+      name: Budget by category
+      description: Budget split by categories as key-value pairs (optional). Category names should match receipt category_summary values.
+      required: false
+      example: '{"Materials": 30000, "Labor": 15000, "Fixtures": 5000}'
+      selector:
+        object:
 
 close_project:
   name: Close project
@@ -28,6 +45,49 @@ close_project:
       example: "abc123-def456-ghi789"
       selector:
         text:
+
+update_project:
+  name: Update project
+  description: Update an existing project
+  fields:
+    project_id:
+      name: Project ID
+      description: ID of the project to update
+      required: true
+      example: "abc123-def456-ghi789"
+      selector:
+        text:
+    name:
+      name: Project name
+      description: New name for the project (optional)
+      required: false
+      example: "Kitchen Renovation Phase 2"
+      selector:
+        text:
+    area_id:
+      name: Area ID
+      description: Home Assistant area ID (optional, set to null to clear)
+      required: false
+      example: "kitchen"
+      selector:
+        area:
+    budget:
+      name: Budget
+      description: Total budget for the project (optional, set to null to clear)
+      required: false
+      example: 50000
+      selector:
+        number:
+          min: 0
+          step: 0.01
+          mode: box
+    budget_by_category:
+      name: Budget by category
+      description: Budget split by categories as key-value pairs (optional, set to null to clear)
+      required: false
+      example: '{"Materials": 30000, "Labor": 15000, "Fixtures": 5000}'
+      selector:
+        object:
 
 reopen_project:
   name: Reopen project
@@ -98,11 +158,35 @@ add_receipt:
         text:
     category_summary:
       name: Category summary
-      description: Summary of categories (optional)
+      description: Single category (legacy, use categories instead)
       required: false
-      example: "Furniture, Hardware"
+      example: "Furniture"
       selector:
         text:
+    categories:
+      name: Categories
+      description: List of categories for this receipt. By default, spend is split equally among categories.
+      required: false
+      example: '["Materials", "Hardware"]'
+      selector:
+        object:
+    category_split:
+      name: Category split
+      description: Custom split amounts for each category. Use with category_split_type to specify absolute amounts or percentages.
+      required: false
+      example: '{"Materials": 700, "Hardware": 300}'
+      selector:
+        object:
+    category_split_type:
+      name: Category split type
+      description: How to interpret category_split values - "absolute" for fixed amounts, "percentage" for percentages of total.
+      required: false
+      example: "absolute"
+      selector:
+        select:
+          options:
+            - "absolute"
+            - "percentage"
     image_data:
       name: Image data
       description: Base64 encoded image (optional)
@@ -161,11 +245,35 @@ update_receipt:
         text:
     category_summary:
       name: Category summary
-      description: Summary of categories (optional)
+      description: Single category (legacy, use categories instead)
       required: false
-      example: "Furniture, Hardware"
+      example: "Furniture"
       selector:
         text:
+    categories:
+      name: Categories
+      description: List of categories for this receipt (set to null to clear).
+      required: false
+      example: '["Materials", "Hardware"]'
+      selector:
+        object:
+    category_split:
+      name: Category split
+      description: Custom split amounts for each category (set to null to clear). Use with category_split_type.
+      required: false
+      example: '{"Materials": 700, "Hardware": 300}'
+      selector:
+        object:
+    category_split_type:
+      name: Category split type
+      description: How to interpret category_split - "absolute" for fixed amounts, "percentage" for percentages (set to null for equal split).
+      required: false
+      example: "absolute"
+      selector:
+        select:
+          options:
+            - "absolute"
+            - "percentage"
 
 delete_receipt:
   name: Delete receipt
