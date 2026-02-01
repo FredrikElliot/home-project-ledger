@@ -118,6 +118,11 @@ const TRANSLATIONS = {
     last6Months: "Last 6 Months",
     thisYear: "This Year",
     allTime: "All Time",
+    customRange: "Custom",
+    selectDateRange: "Select Date Range",
+    startDate: "Start Date",
+    endDate: "End Date",
+    apply: "Apply",
     noDataYet: "No data yet",
     noDataYetDesc: "Start adding receipts to see your spending statistics here.",
     averagePerReceipt: "Avg. per Receipt",
@@ -324,8 +329,8 @@ const TRANSLATIONS = {
     spendByProject: "Utgifter per projekt",
     budgetOverview: "Budgetöversikt",
     spendingTimeline: "Utgifter över tid",
-    topMerchants: "Topp butiker",
-    topCategories: "Topp kategorier",
+    topMerchants: "Toppbutiker",
+    topCategories: "Toppkategorier",
     recentActivity: "Senaste aktivitet",
     monthlySpending: "Månadsutgifter",
     thisMonth: "Denna månad",
@@ -334,12 +339,17 @@ const TRANSLATIONS = {
     last6Months: "Senaste 6 månaderna",
     thisYear: "I år",
     allTime: "All tid",
+    customRange: "Anpassat",
+    selectDateRange: "Välj datumintervall",
+    startDate: "Startdatum",
+    endDate: "Slutdatum",
+    apply: "Tillämpa",
     noDataYet: "Ingen data än",
     noDataYetDesc: "Börja lägga till kvitton för att se din utgiftsstatistik här.",
     averagePerReceipt: "Snitt per kvitto",
     averageMonthly: "Snitt per månad",
     projectsWithBudget: "Projekt med budget",
-    onTrack: "På spår",
+    onTrack: "Enligt plan",
     atRisk: "Risk",
     overBudgetCount: "Över budget",
     budgetHealth: "Budgethälsa",
@@ -468,7 +478,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
       searchQuery: "",
       activeFilter: "all",
       activeTab: "dashboard",
-      dashboardPeriod: "allTime", // thisMonth, lastMonth, last3Months, last6Months, thisYear, allTime
+      dashboardPeriod: "allTime", // thisMonth, lastMonth, last3Months, last6Months, thisYear, allTime, custom
+      customDateRange: null, // { start: 'YYYY-MM-DD', end: 'YYYY-MM-DD' }
       expandedProjectId: null,
       expandedReceiptId: null, // For showing receipt detail inline
       detailPhotoIndex: 0, // For selecting which photo to show in receipt detail
@@ -480,6 +491,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
       authCodeInput: "", // For OAuth flow
     };
     this._initialized = false;
+    this._amChartsLoaded = false;
+    this._chartInstances = []; // Track chart instances for cleanup
   }
 
   // Get translated string
@@ -528,7 +541,57 @@ class HomeProjectLedgerPanel extends HTMLElement {
   }
 
   disconnectedCallback() {
+    // Clean up chart instances
+    this._disposeCharts();
     document.removeEventListener("click", this._handleDocumentClick.bind(this));
+  }
+  
+  _disposeCharts() {
+    if (this._chartInstances) {
+      this._chartInstances.forEach(chart => {
+        if (chart && chart.dispose) {
+          chart.dispose();
+        }
+      });
+      this._chartInstances = [];
+    }
+  }
+  
+  async _loadAmCharts() {
+    if (this._amChartsLoaded || window.am5) {
+      this._amChartsLoaded = true;
+      return true;
+    }
+    
+    try {
+      // Load amCharts 5 core
+      await this._loadScript('https://cdn.amcharts.com/lib/5/index.js');
+      // Load XY chart package
+      await this._loadScript('https://cdn.amcharts.com/lib/5/xy.js');
+      // Load animated theme
+      await this._loadScript('https://cdn.amcharts.com/lib/5/themes/Animated.js');
+      
+      this._amChartsLoaded = true;
+      return true;
+    } catch (error) {
+      console.error('Failed to load amCharts:', error);
+      return false;
+    }
+  }
+  
+  _loadScript(src) {
+    return new Promise((resolve, reject) => {
+      // Check if already loaded
+      if (document.querySelector(`script[src="${src}"]`)) {
+        resolve();
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = src;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
   }
 
   _handleDocumentClick(e) {
@@ -761,10 +824,18 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .dashboard-card-body.no-padding { padding: 0; }
         
         /* Time Period Selector */
-        .time-period-selector { display: flex; gap: 4px; background-color: var(--secondary-background-color, #f5f5f5); border-radius: 8px; padding: 4px; }
+        .time-period-selector { display: flex; gap: 4px; background-color: var(--secondary-background-color, #f5f5f5); border-radius: 8px; padding: 4px; flex-wrap: wrap; }
         .time-period-btn { padding: 6px 12px; border: none; background: none; border-radius: 6px; font-size: 12px; font-weight: 500; color: var(--secondary-text-color, #757575); cursor: pointer; transition: all 0.2s; white-space: nowrap; }
         .time-period-btn:hover { color: var(--primary-text-color, #212121); }
         .time-period-btn.active { background-color: var(--card-background-color, #fff); color: var(--primary-color, #03a9f4); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        
+        /* Custom Date Range Picker */
+        .date-range-picker { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+        .date-range-picker input[type="date"] { padding: 6px 10px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: 6px; font-size: 12px; background-color: var(--card-background-color, #fff); color: var(--primary-text-color, #212121); }
+        .date-range-picker input[type="date"]:focus { outline: none; border-color: var(--primary-color, #03a9f4); }
+        .date-range-picker .date-range-label { font-size: 12px; color: var(--secondary-text-color, #757575); }
+        .date-range-picker .apply-btn { padding: 6px 12px; border: none; background-color: var(--primary-color, #03a9f4); color: white; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; }
+        .date-range-picker .apply-btn:hover { opacity: 0.9; }
         
         /* Summary Stats Row */
         .summary-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
@@ -801,9 +872,12 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .bar-chart-bar-text { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 12px; font-weight: 500; color: var(--primary-text-color, #212121); }
         .bar-chart-value { width: 80px; text-align: right; font-size: 13px; font-weight: 500; color: var(--primary-text-color, #212121); flex-shrink: 0; }
         
-        /* Timeline Chart */
-        .timeline-chart { height: 160px; position: relative; padding: 8px 0; }
-        @media (min-width: 600px) { .timeline-chart { height: 180px; } }
+        /* Timeline Chart - amCharts Container */
+        .timeline-chart { height: 220px; position: relative; padding: 8px 0; }
+        @media (min-width: 600px) { .timeline-chart { height: 260px; } }
+        .timeline-chart-container { width: 100%; height: 100%; }
+        
+        /* Fallback SVG Chart Styles */
         .timeline-chart svg { width: 100%; height: 100%; }
         .timeline-chart-area { fill: url(#timeline-gradient); opacity: 0.3; }
         .timeline-chart-line { fill: none; stroke: var(--primary-color, #03a9f4); stroke-width: 2px; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
@@ -812,7 +886,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .timeline-chart-grid-line { stroke: var(--divider-color, #e0e0e0); stroke-width: 1px; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
         .timeline-chart-labels { display: flex; justify-content: space-between; padding: 8px 4px 0 4px; font-size: 10px; color: var(--secondary-text-color, #757575); }
         @media (min-width: 600px) { .timeline-chart-labels { font-size: 11px; } }
-        .timeline-chart-tooltip { position: absolute; background-color: var(--card-background-color, #fff); border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); padding: 8px 12px; font-size: 12px; pointer-events: none; z-index: 10; white-space: nowrap; transform: translate(-50%, -100%); margin-top: -10px; }
+        .timeline-chart-label { fill: var(--secondary-text-color, #757575); font-size: 10px; }
+        .timeline-chart-tooltip { position: absolute; background-color: var(--card-background-color, #fff); border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); padding: 8px 12px; font-size: 12px; pointer-events: none; z-index: 10; white-space: nowrap; transform: translate(-50%, -100%); margin-top: -10px; display: none; }
         .timeline-chart-tooltip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: var(--card-background-color, #fff); }
         .timeline-chart-tooltip-value { font-weight: 500; color: var(--primary-text-color, #212121); }
         .timeline-chart-tooltip-label { color: var(--secondary-text-color, #757575); margin-top: 2px; }
@@ -1145,6 +1220,14 @@ class HomeProjectLedgerPanel extends HTMLElement {
     `;
 
     this._attachEventListeners();
+    
+    // Initialize amCharts after DOM is ready (only for dashboard tab)
+    if (this._state.activeTab === 'dashboard') {
+      // Use requestAnimationFrame to ensure DOM is painted
+      requestAnimationFrame(() => {
+        this._initAmCharts();
+      });
+    }
   }
 
   _renderMobileAppBar() {
@@ -1245,6 +1328,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
       { id: 'last3Months', label: this._t('last3Months') },
       { id: 'thisYear', label: this._t('thisYear') },
       { id: 'allTime', label: this._t('allTime') },
+      { id: 'custom', label: this._t('customRange') },
     ];
     
     let html = '<div class="time-period-selector">';
@@ -1253,6 +1337,22 @@ class HomeProjectLedgerPanel extends HTMLElement {
       html += '<button class="time-period-btn' + active + '" data-action="set-period" data-period="' + p.id + '">' + p.label + '</button>';
     });
     html += '</div>';
+    
+    // Show date range picker when custom is selected
+    if (this._state.dashboardPeriod === 'custom') {
+      const today = new Date().toISOString().substring(0, 10);
+      const startValue = this._state.customDateRange?.start || '';
+      const endValue = this._state.customDateRange?.end || today;
+      
+      html += '<div class="date-range-picker">' +
+        '<span class="date-range-label">' + this._t('startDate') + ':</span>' +
+        '<input type="date" id="custom-start-date" value="' + startValue + '" max="' + today + '">' +
+        '<span class="date-range-label">' + this._t('endDate') + ':</span>' +
+        '<input type="date" id="custom-end-date" value="' + endValue + '" max="' + today + '">' +
+        '<button class="apply-btn" data-action="apply-custom-range">' + this._t('apply') + '</button>' +
+      '</div>';
+    }
+    
     return html;
   }
   
@@ -1261,6 +1361,20 @@ class HomeProjectLedgerPanel extends HTMLElement {
     const period = this._state.dashboardPeriod || 'allTime';
     
     if (period === 'allTime') return receipts;
+    
+    // Handle custom date range
+    if (period === 'custom') {
+      if (!this._state.customDateRange?.start || !this._state.customDateRange?.end) {
+        return receipts; // No range set yet
+      }
+      const startDate = new Date(this._state.customDateRange.start);
+      const endDate = new Date(this._state.customDateRange.end);
+      endDate.setHours(23, 59, 59, 999); // Include the entire end day
+      return receipts.filter(r => {
+        const d = new Date(r.date);
+        return d >= startDate && d <= endDate;
+      });
+    }
     
     let startDate;
     switch (period) {
@@ -1348,27 +1462,113 @@ class HomeProjectLedgerPanel extends HTMLElement {
   }
   
   _getTimelineData(receipts) {
-    // Group by month
+    // Group by time period based on selected filter
     const map = new Map();
     const now = new Date();
+    const period = this._state.dashboardPeriod || 'allTime';
     
-    // Initialize last 12 months
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = d.toISOString().substring(0, 7); // YYYY-MM
-      map.set(key, { month: key, value: 0, label: this._formatMonth(d) });
-    }
-    
-    receipts.forEach(r => {
-      if (r.date) {
-        const key = r.date.substring(0, 7);
-        if (map.has(key)) {
-          map.get(key).value += r.total || 0;
+    // Helper to add receipts to map
+    const addReceipts = (keyFn) => {
+      receipts.forEach(r => {
+        if (r.date) {
+          const key = keyFn(r.date);
+          if (map.has(key)) {
+            map.get(key).value += r.total || 0;
+          }
         }
-      }
-    });
+      });
+    };
     
-    return Array.from(map.values());
+    switch (period) {
+      case 'thisMonth': {
+        // Show days of current month
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        for (let i = 1; i <= daysInMonth; i++) {
+          const d = new Date(now.getFullYear(), now.getMonth(), i);
+          const key = d.toISOString().substring(0, 10); // YYYY-MM-DD
+          map.set(key, { key, date: d, value: 0, label: i.toString() });
+        }
+        addReceipts(date => date.substring(0, 10));
+        return Array.from(map.values());
+      }
+        
+      case 'lastMonth': {
+        // Show days of last month
+        const lastMonthDays = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+        for (let i = 1; i <= lastMonthDays; i++) {
+          const d = new Date(now.getFullYear(), now.getMonth() - 1, i);
+          const key = d.toISOString().substring(0, 10);
+          map.set(key, { key, date: d, value: 0, label: i.toString() });
+        }
+        addReceipts(date => date.substring(0, 10));
+        return Array.from(map.values());
+      }
+        
+      case 'last3Months': {
+        // Show last 3 months (starting from current month going back)
+        for (let i = 2; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const key = d.toISOString().substring(0, 7); // YYYY-MM
+          map.set(key, { key, date: d, value: 0, label: this._formatMonth(d) });
+        }
+        addReceipts(date => date.substring(0, 7));
+        return Array.from(map.values());
+      }
+        
+      case 'thisYear': {
+        // Show all months from January to current month of current year
+        for (let m = 0; m <= now.getMonth(); m++) {
+          const d = new Date(now.getFullYear(), m, 1);
+          const key = d.toISOString().substring(0, 7); // YYYY-MM
+          map.set(key, { key, date: d, value: 0, label: this._formatMonth(d) });
+        }
+        addReceipts(date => date.substring(0, 7));
+        return Array.from(map.values());
+      }
+      
+      case 'custom': {
+        // Custom date range
+        if (!this._state.customDateRange?.start || !this._state.customDateRange?.end) {
+          return [];
+        }
+        const startDate = new Date(this._state.customDateRange.start);
+        const endDate = new Date(this._state.customDateRange.end);
+        const daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+        
+        if (daysDiff <= 31) {
+          // Show daily for up to 31 days
+          for (let i = 0; i < daysDiff; i++) {
+            const d = new Date(startDate);
+            d.setDate(d.getDate() + i);
+            const key = d.toISOString().substring(0, 10);
+            map.set(key, { key, date: new Date(d), value: 0, label: d.getDate().toString() });
+          }
+          addReceipts(date => date.substring(0, 10));
+        } else {
+          // Show monthly for longer ranges
+          let current = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+          while (current <= endDate) {
+            const key = current.toISOString().substring(0, 7);
+            map.set(key, { key, date: new Date(current), value: 0, label: this._formatMonth(current) });
+            current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
+          }
+          addReceipts(date => date.substring(0, 7));
+        }
+        return Array.from(map.values());
+      }
+        
+      case 'allTime':
+      default: {
+        // Show last 12 months
+        for (let i = 11; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const key = d.toISOString().substring(0, 7); // YYYY-MM
+          map.set(key, { key, date: d, value: 0, label: this._formatMonth(d) });
+        }
+        addReceipts(date => date.substring(0, 7));
+        return Array.from(map.values());
+      }
+    }
   }
   
   _formatMonth(date) {
@@ -1434,69 +1634,313 @@ class HomeProjectLedgerPanel extends HTMLElement {
   }
   
   _renderTimelineCard(data) {
+    if (data.length === 0) {
+      return '<div class="dashboard-card full-width">' +
+        '<div class="dashboard-card-header"><h3>' + this._t('spendingTimeline') + '</h3></div>' +
+        '<div class="dashboard-card-body" style="text-align: center; color: var(--secondary-text-color); padding: 40px 20px;">' +
+          this._t('noDataYet') +
+        '</div>' +
+      '</div>';
+    }
+    
+    // Store chart data for amCharts initialization
+    this._timelineChartData = data;
+    
+    // Return container - amCharts will be initialized after render
+    return '<div class="dashboard-card full-width">' +
+      '<div class="dashboard-card-header"><h3>' + this._t('spendingTimeline') + '</h3></div>' +
+      '<div class="dashboard-card-body">' +
+        '<div class="timeline-chart">' +
+          '<div id="timeline-chart-container" class="timeline-chart-container"></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+  
+  async _initAmCharts() {
+    // Only init if we have data and the container exists
+    const container = this.querySelector('#timeline-chart-container');
+    if (!container || !this._timelineChartData || this._timelineChartData.length === 0) {
+      return;
+    }
+    
+    // Dispose existing charts
+    this._disposeCharts();
+    
+    // Try to load amCharts
+    const loaded = await this._loadAmCharts();
+    if (!loaded || !window.am5) {
+      // Fallback to SVG chart
+      this._renderFallbackChart(container);
+      return;
+    }
+    
+    try {
+      const am5 = window.am5;
+      const am5xy = window.am5xy;
+      const am5themes_Animated = window.am5themes_Animated;
+      
+      // Create root
+      const root = am5.Root.new(container);
+      this._chartInstances.push(root);
+      
+      // Set themes
+      root.setThemes([am5themes_Animated.new(root)]);
+      
+      // Get HA theme colors
+      const styles = getComputedStyle(this);
+      const primaryColor = styles.getPropertyValue('--primary-color').trim() || '#03a9f4';
+      const textColor = styles.getPropertyValue('--primary-text-color').trim() || '#212121';
+      const secondaryTextColor = styles.getPropertyValue('--secondary-text-color').trim() || '#757575';
+      const gridColor = styles.getPropertyValue('--divider-color').trim() || '#e0e0e0';
+      const bgColor = styles.getPropertyValue('--card-background-color').trim() || '#ffffff';
+      
+      // Create chart
+      const chart = root.container.children.push(am5xy.XYChart.new(root, {
+        panX: false,
+        panY: false,
+        wheelX: "none",
+        wheelY: "none",
+        paddingLeft: 0,
+        paddingRight: 0,
+      }));
+      
+      // Prepare data with proper date objects
+      const chartData = this._timelineChartData.map(d => ({
+        category: d.label,
+        value: d.value,
+        date: d.date || new Date(),
+      }));
+      
+      // Create X axis
+      const xAxis = chart.xAxes.push(am5xy.CategoryAxis.new(root, {
+        categoryField: "category",
+        renderer: am5xy.AxisRendererX.new(root, {
+          minGridDistance: 30,
+        }),
+        tooltip: am5.Tooltip.new(root, {}),
+      }));
+      
+      xAxis.get("renderer").labels.template.setAll({
+        fill: am5.color(secondaryTextColor),
+        fontSize: 11,
+      });
+      
+      xAxis.get("renderer").grid.template.setAll({
+        stroke: am5.color(gridColor),
+        strokeOpacity: 0.5,
+      });
+      
+      xAxis.data.setAll(chartData);
+      
+      // Create Y axis
+      const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
+        min: 0,
+        renderer: am5xy.AxisRendererY.new(root, {}),
+      }));
+      
+      yAxis.get("renderer").labels.template.setAll({
+        fill: am5.color(secondaryTextColor),
+        fontSize: 11,
+      });
+      
+      yAxis.get("renderer").grid.template.setAll({
+        stroke: am5.color(gridColor),
+        strokeOpacity: 0.3,
+        strokeDasharray: [4, 4],
+      });
+      
+      // Create series with smooth line
+      const series = chart.series.push(am5xy.SmoothedXLineSeries.new(root, {
+        name: this._t('spendingTimeline'),
+        xAxis: xAxis,
+        yAxis: yAxis,
+        valueYField: "value",
+        categoryXField: "category",
+        tension: 0.3,
+        tooltip: am5.Tooltip.new(root, {
+          labelText: "{category}: " + this._state.currency + " {valueY}",
+          pointerOrientation: "vertical",
+        }),
+      }));
+      
+      // Style the line
+      series.strokes.template.setAll({
+        stroke: am5.color(primaryColor),
+        strokeWidth: 2,
+      });
+      
+      // Add fill under the line
+      series.fills.template.setAll({
+        visible: true,
+        fillOpacity: 0.2,
+        fill: am5.color(primaryColor),
+      });
+      
+      // Add bullets (dots)
+      series.bullets.push(() => {
+        return am5.Bullet.new(root, {
+          sprite: am5.Circle.new(root, {
+            radius: 4,
+            fill: am5.color(bgColor),
+            stroke: am5.color(primaryColor),
+            strokeWidth: 2,
+          }),
+        });
+      });
+      
+      // Style tooltip
+      const tooltip = series.get("tooltip");
+      if (tooltip) {
+        tooltip.get("background").setAll({
+          fill: am5.color(bgColor),
+          fillOpacity: 0.95,
+          stroke: am5.color(gridColor),
+          strokeWidth: 1,
+        });
+        tooltip.label.setAll({
+          fill: am5.color(textColor),
+          fontSize: 12,
+        });
+      }
+      
+      // Set data
+      series.data.setAll(chartData);
+      
+      // Animate on load
+      series.appear(1000);
+      chart.appear(1000, 100);
+      
+    } catch (error) {
+      console.error('Error initializing amCharts:', error);
+      this._renderFallbackChart(container);
+    }
+  }
+  
+  _renderFallbackChart(container) {
+    // Fallback SVG chart when amCharts fails to load
+    const data = this._timelineChartData;
+    if (!data || data.length === 0) return;
+    
     const maxValue = Math.max(...data.map(d => d.value), 1);
     const width = 400;
-    const height = 150;
-    const paddingTop = 15;
-    const paddingBottom = 10;
-    const paddingX = 10;
+    const height = 200;
+    const paddingTop = 20;
+    const paddingBottom = 30;
+    const paddingX = 40;
     const chartHeight = height - paddingTop - paddingBottom;
     const chartWidth = width - paddingX * 2;
     
-    // Build points for line and area
     const points = data.map((d, i) => {
-      const x = paddingX + (i / (data.length - 1)) * chartWidth;
+      const x = paddingX + (i / Math.max(data.length - 1, 1)) * chartWidth;
       const y = paddingTop + chartHeight - (d.value / maxValue) * chartHeight;
       return { x, y, value: d.value, label: d.label };
     });
     
-    // Create line path
-    const linePath = points.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(2) + ',' + p.y.toFixed(2)).join(' ');
+    // Create smooth curve using catmull-rom spline
+    const smoothPath = this._createSmoothPath(points);
+    const areaPath = smoothPath + ' L' + points[points.length - 1].x.toFixed(2) + ',' + (height - paddingBottom) + ' L' + points[0].x.toFixed(2) + ',' + (height - paddingBottom) + ' Z';
     
-    // Create area path (closed polygon)
-    const areaPath = linePath + ' L' + points[points.length - 1].x.toFixed(2) + ',' + (height - paddingBottom) + ' L' + points[0].x.toFixed(2) + ',' + (height - paddingBottom) + ' Z';
-    
-    // Build SVG with gradient, grid lines, area, line, and dots
     let gridLines = '';
-    for (let i = 1; i <= 3; i++) {
+    for (let i = 0; i <= 4; i++) {
       const y = paddingTop + (chartHeight / 4) * i;
       gridLines += '<line class="timeline-chart-grid-line" x1="' + paddingX + '" y1="' + y.toFixed(2) + '" x2="' + (width - paddingX) + '" y2="' + y.toFixed(2) + '"/>';
     }
     
     let dotsHtml = '';
     points.forEach((p, i) => {
-      dotsHtml += '<circle class="timeline-chart-dot" cx="' + p.x.toFixed(2) + '" cy="' + p.y.toFixed(2) + '" r="3" data-index="' + i + '" data-value="' + this._formatCurrency(p.value) + '" data-label="' + p.label + '"/>';
+      dotsHtml += '<circle class="timeline-chart-dot" cx="' + p.x.toFixed(2) + '" cy="' + p.y.toFixed(2) + '" r="4" data-index="' + i + '" data-value="' + this._formatCurrency(p.value) + '" data-label="' + p.label + '"/>';
     });
     
-    // Labels (show every other on mobile, all on desktop or if few items)
-    let labelsHtml = '<div class="timeline-chart-labels">';
+    let labelsHtml = '';
+    const labelStep = data.length > 12 ? Math.ceil(data.length / 6) : 1;
     data.forEach((d, i) => {
-      if (i % 3 === 0 || i === data.length - 1) {
-        labelsHtml += '<span>' + d.label + '</span>';
+      if (i === 0 || i === data.length - 1 || (labelStep > 1 && i % labelStep === 0)) {
+        const x = paddingX + (i / Math.max(data.length - 1, 1)) * chartWidth;
+        labelsHtml += '<text x="' + x.toFixed(2) + '" y="' + (height - 8) + '" text-anchor="middle" class="timeline-chart-label">' + d.label + '</text>';
       }
     });
-    labelsHtml += '</div>';
     
-    return '<div class="dashboard-card full-width">' +
-      '<div class="dashboard-card-header"><h3>' + this._t('spendingTimeline') + '</h3></div>' +
-      '<div class="dashboard-card-body">' +
-        '<div class="timeline-chart">' +
-          '<svg viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="xMidYMid meet">' + +
-            '<defs>' +
-              '<linearGradient id="timeline-gradient" x1="0%" y1="0%" x2="0%" y2="100%">' +
-                '<stop offset="0%" style="stop-color:var(--primary-color, #03a9f4);stop-opacity:0.4"/>' +
-                '<stop offset="100%" style="stop-color:var(--primary-color, #03a9f4);stop-opacity:0.05"/>' +
-              '</linearGradient>' +
-            '</defs>' +
-            gridLines +
-            '<path class="timeline-chart-area" d="' + areaPath + '"/>' +
-            '<path class="timeline-chart-line" d="' + linePath + '"/>' +
-            dotsHtml +
-          '</svg>' +
-        '</div>' +
-        labelsHtml +
-      '</div>' +
-    '</div>';
+    container.innerHTML = '<svg viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%">' +
+      '<defs>' +
+        '<linearGradient id="timeline-gradient" x1="0%" y1="0%" x2="0%" y2="100%">' +
+          '<stop offset="0%" style="stop-color:var(--primary-color, #03a9f4);stop-opacity:0.3"/>' +
+          '<stop offset="100%" style="stop-color:var(--primary-color, #03a9f4);stop-opacity:0.05"/>' +
+        '</linearGradient>' +
+      '</defs>' +
+      gridLines +
+      '<path class="timeline-chart-area" d="' + areaPath + '"/>' +
+      '<path class="timeline-chart-line" d="' + smoothPath + '"/>' +
+      dotsHtml +
+      labelsHtml +
+    '</svg>';
+    
+    // Add tooltip functionality
+    this._addChartTooltips(container);
+  }
+  
+  _createSmoothPath(points) {
+    if (points.length < 2) {
+      return points.map((p, i) => (i === 0 ? 'M' : 'L') + p.x.toFixed(2) + ',' + p.y.toFixed(2)).join(' ');
+    }
+    
+    // Use catmull-rom spline for smooth curves
+    let path = 'M' + points[0].x.toFixed(2) + ',' + points[0].y.toFixed(2);
+    
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[Math.max(0, i - 1)];
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const p3 = points[Math.min(points.length - 1, i + 2)];
+      
+      const tension = 0.3;
+      const cp1x = p1.x + (p2.x - p0.x) * tension;
+      const cp1y = p1.y + (p2.y - p0.y) * tension;
+      const cp2x = p2.x - (p3.x - p1.x) * tension;
+      const cp2y = p2.y - (p3.y - p1.y) * tension;
+      
+      path += ' C' + cp1x.toFixed(2) + ',' + cp1y.toFixed(2) + ' ' + cp2x.toFixed(2) + ',' + cp2y.toFixed(2) + ' ' + p2.x.toFixed(2) + ',' + p2.y.toFixed(2);
+    }
+    
+    return path;
+  }
+  
+  _addChartTooltips(container) {
+    const dots = container.querySelectorAll('.timeline-chart-dot');
+    let tooltip = null;
+    
+    dots.forEach(dot => {
+      dot.addEventListener('mouseenter', (e) => {
+        const value = dot.getAttribute('data-value');
+        const label = dot.getAttribute('data-label');
+        
+        if (!tooltip) {
+          tooltip = document.createElement('div');
+          tooltip.className = 'timeline-chart-tooltip';
+          container.appendChild(tooltip);
+        }
+        
+        tooltip.innerHTML = '<div class="timeline-chart-tooltip-value">' + value + '</div>' +
+          '<div class="timeline-chart-tooltip-label">' + label + '</div>';
+        
+        const rect = container.getBoundingClientRect();
+        const cx = parseFloat(dot.getAttribute('cx'));
+        const cy = parseFloat(dot.getAttribute('cy'));
+        const svgRect = container.querySelector('svg').getBoundingClientRect();
+        const scaleX = svgRect.width / 400;
+        const scaleY = svgRect.height / 200;
+        
+        tooltip.style.left = (cx * scaleX) + 'px';
+        tooltip.style.top = (cy * scaleY - 10) + 'px';
+        tooltip.style.display = 'block';
+      });
+      
+      dot.addEventListener('mouseleave', () => {
+        if (tooltip) {
+          tooltip.style.display = 'none';
+        }
+      });
+    });
   }
   
   _renderDonutCard(title, data, total) {
@@ -3289,7 +3733,22 @@ class HomeProjectLedgerPanel extends HTMLElement {
         break;
       case "set-period":
         this._state.dashboardPeriod = dataset.period;
+        // Clear custom range when switching to another period
+        if (dataset.period !== 'custom') {
+          this._state.customDateRange = null;
+        }
         this._render();
+        break;
+      case "apply-custom-range":
+        const startInput = this._container.querySelector('#custom-start-date');
+        const endInput = this._container.querySelector('#custom-end-date');
+        if (startInput && endInput && startInput.value && endInput.value) {
+          this._state.customDateRange = {
+            start: startInput.value,
+            end: endInput.value,
+          };
+          this._render();
+        }
         break;
       case "remove-category":
         const catIndex = parseInt(dataset.index, 10);
