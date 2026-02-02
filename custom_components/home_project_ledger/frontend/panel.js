@@ -1584,6 +1584,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
       projects: {}, // { projectName: amount }
     });
     
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
     switch (period) {
       case 'thisMonth': {
         // Show days of current month
@@ -1591,7 +1593,9 @@ class HomeProjectLedgerPanel extends HTMLElement {
         for (let i = 1; i <= daysInMonth; i++) {
           const d = new Date(now.getFullYear(), now.getMonth(), i);
           const key = formatDateKey(d);
-          map.set(key, createEntry(key, d, i.toString()));
+          const entry = createEntry(key, d, i.toString());
+          entry.fullLabel = i + ' ' + months[d.getMonth()]; // "15 Jan" format for tooltip
+          map.set(key, entry);
         }
         addReceipts(date => date.substring(0, 10));
         return Array.from(map.values());
@@ -1603,7 +1607,9 @@ class HomeProjectLedgerPanel extends HTMLElement {
         for (let i = 1; i <= lastMonthDays; i++) {
           const d = new Date(now.getFullYear(), now.getMonth() - 1, i);
           const key = formatDateKey(d);
-          map.set(key, createEntry(key, d, i.toString()));
+          const entry = createEntry(key, d, i.toString());
+          entry.fullLabel = i + ' ' + months[d.getMonth()]; // "15 Dec" format for tooltip
+          map.set(key, entry);
         }
         addReceipts(date => date.substring(0, 10));
         return Array.from(map.values());
@@ -1641,12 +1647,14 @@ class HomeProjectLedgerPanel extends HTMLElement {
         const daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
         
         if (daysDiff <= 31) {
-          // Show daily for up to 31 days
+          // Show daily for up to 31 days - include month in tooltip
           for (let i = 0; i < daysDiff; i++) {
             const d = new Date(startDate);
             d.setDate(d.getDate() + i);
             const key = formatDateKey(d);
-            map.set(key, createEntry(key, new Date(d), d.getDate().toString()));
+            const entry = createEntry(key, new Date(d), d.getDate().toString());
+            entry.fullLabel = d.getDate() + ' ' + months[d.getMonth()]; // "15 Jan" format for tooltip
+            map.set(key, entry);
           }
           addReceipts(date => date.substring(0, 10));
         } else {
@@ -1972,6 +1980,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
       // Prepare data with project breakdown
       const chartData = this._timelineChartData.map(d => ({
         category: d.label,
+        fullLabel: d.fullLabel || d.label, // Use fullLabel for tooltip if available
         value: d.value,
         date: d.date || new Date(),
         projects: d.projects || {},
@@ -2117,7 +2126,9 @@ class HomeProjectLedgerPanel extends HTMLElement {
           const projects = data.projects || {};
           const projectNames = Object.keys(projects).sort((a, b) => projects[b] - projects[a]);
           
-          let content = '<div class="timeline-chart-tooltip-label">' + data.category + '</div>';
+          // Use fullLabel for tooltip (includes month for custom date ranges)
+          const displayLabel = data.fullLabel || data.category;
+          let content = '<div class="timeline-chart-tooltip-label">' + displayLabel + '</div>';
           content += '<div class="timeline-chart-tooltip-value">' + total + '</div>';
           
           if (projectNames.length > 0) {
@@ -2134,12 +2145,13 @@ class HomeProjectLedgerPanel extends HTMLElement {
           
           customTooltip.innerHTML = content;
           
-          // Position the tooltip using pointer coordinates from the event
+          // Position tooltip relative to cursor
           const pointerX = ev.originalEvent.clientX;
           const pointerY = ev.originalEvent.clientY;
           const tooltipWidth = 180;
+          
           let left = pointerX - tooltipWidth / 2;
-          let top = pointerY - 80; // Position above the cursor
+          let top = pointerY - 30; // Position just above the cursor
           
           if (left < 10) left = 10;
           if (left + tooltipWidth > window.innerWidth - 10) {
