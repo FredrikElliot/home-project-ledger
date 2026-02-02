@@ -162,17 +162,28 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
     cache_bust = int(time.time())
     module_url = f"/local/{DOMAIN}/panel.js?v={cache_bust}"
 
+    # Get the user's language for the sidebar title
+    # Home Assistant stores the language in hass.config.language
+    language = hass.config.language or "en"
+    
+    # Sidebar titles by language
+    sidebar_titles = {
+        "en": "Project Ledger",
+        "sv": "Projektredovisning",
+    }
+    sidebar_title = sidebar_titles.get(language, sidebar_titles["en"])
+
     # NOTE: In your HA version, async_register_panel is a coroutine and MUST be awaited.
     await panel_custom.async_register_panel(
         hass,
         webcomponent_name=f"{DOMAIN}-panel",
         frontend_url_path=PANEL_URL,
         module_url=module_url,
-        sidebar_title=PANEL_TITLE,
+        sidebar_title=sidebar_title,
         sidebar_icon=PANEL_ICON,
         require_admin=False,
         config={},
     )
 
     hass.data[DOMAIN]["panel_registered"] = True
-    _LOGGER.info("Registered Home Project Ledger panel at /%s (module: %s)", PANEL_URL, module_url)
+    _LOGGER.info("Registered Home Project Ledger panel at /%s (module: %s, title: %s)", PANEL_URL, module_url, sidebar_title)
