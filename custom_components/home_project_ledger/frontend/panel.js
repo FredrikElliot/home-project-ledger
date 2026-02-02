@@ -829,8 +829,13 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .dashboard-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
         @media (min-width: 768px) { .dashboard-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (min-width: 1200px) { .dashboard-grid { grid-template-columns: repeat(3, 1fr); } }
-        .dashboard-card { background-color: var(--card-background-color, #fff); border-radius: var(--ha-card-border-radius, 12px); box-shadow: var(--ha-card-box-shadow, 0 2px 4px rgba(0,0,0,0.1)); overflow: hidden; }
-        .dashboard-card.full-width { grid-column: 1 / -1; }
+        .dashboard-budget-row { display: grid; grid-template-columns: 1fr; gap: 20px; margin-bottom: 20px; }
+        @media (min-width: 768px) { .dashboard-budget-row { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 1200px) { .dashboard-budget-row { grid-template-columns: repeat(3, 1fr); } }
+        .dashboard-budget-row .dashboard-card { margin-bottom: 0; }
+        .dashboard-card { background-color: var(--card-background-color, #fff); border-radius: var(--ha-card-border-radius, 12px); box-shadow: var(--ha-card-box-shadow, 0 2px 4px rgba(0,0,0,0.1)); overflow: hidden; margin-bottom: 20px; }
+        .dashboard-grid .dashboard-card { margin-bottom: 0; }
+        .dashboard-card.full-width { grid-column: 1 / -1; margin-bottom: 20px; }
         .dashboard-card.half-width { grid-column: span 1; }
         @media (min-width: 768px) { .dashboard-card.half-width { grid-column: span 1; } }
         .dashboard-card-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--divider-color, #e0e0e0); }
@@ -1357,23 +1362,23 @@ class HomeProjectLedgerPanel extends HTMLElement {
         '<h1>' + this._t('dashboard') + '</h1>' +
         this._renderTimePeriodSelector() +
       '</div>' +
-      '<div class="dashboard-grid">' +
-        // Summary stats card
-        this._renderSummaryCard(totalSpend, filteredReceipts.length, avgPerReceipt, this._state.projects.length) +
-        // Budget health card
+      // Summary stats at the very top
+      this._renderSummaryCard(totalSpend, filteredReceipts.length, avgPerReceipt, this._state.projects.length) +
+      // Budget row: health indicators, budget list, and recent activity side by side
+      '<div class="dashboard-budget-row">' +
         this._renderBudgetHealthCard(projectsWithBudget.length, onTrackProjects, atRiskProjects, overBudgetProjects) +
-        // Spending timeline
-        this._renderTimelineCard(timelineData) +
+        this._renderBudgetTrackingCard(projectsWithBudget) +
+        this._renderRecentActivityCard(filteredReceipts.slice(0, 10)) +
+      '</div>' +
+      // Spending timeline in its own full-width section
+      this._renderTimelineCard(timelineData) +
+      '<div class="dashboard-grid">' +
         // Category breakdown
         this._renderDonutCard(this._t('spendByCategory'), categoryData, totalSpend) +
         // Top merchants
         this._renderBarCard(this._t('topMerchants'), merchantData) +
         // Project spending
         this._renderDonutCard(this._t('spendByProject'), projectData, totalSpend) +
-        // Budget tracking
-        this._renderBudgetTrackingCard(projectsWithBudget) +
-        // Recent activity
-        this._renderRecentActivityCard(filteredReceipts.slice(0, 10)) +
       '</div>';
   }
   
