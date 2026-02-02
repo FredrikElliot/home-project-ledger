@@ -2116,15 +2116,19 @@ class HomeProjectLedgerPanel extends HTMLElement {
           
           customTooltip.innerHTML = content;
           
-          // Position the tooltip
-          const point = ev.target.toGlobal({ x: 0, y: 0 });
+          // Position the tooltip using pointer coordinates from the event
+          const pointerX = ev.originalEvent.clientX;
+          const pointerY = ev.originalEvent.clientY;
           const tooltipWidth = 180;
-          let left = point.x - tooltipWidth / 2;
-          let top = point.y - 15;
+          let left = pointerX - tooltipWidth / 2;
+          let top = pointerY - 80; // Position above the cursor
           
           if (left < 10) left = 10;
           if (left + tooltipWidth > window.innerWidth - 10) {
             left = window.innerWidth - tooltipWidth - 10;
+          }
+          if (top < 10) {
+            top = pointerY + 20; // Show below if too close to top
           }
           
           customTooltip.style.left = left + 'px';
