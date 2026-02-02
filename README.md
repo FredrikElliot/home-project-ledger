@@ -108,16 +108,17 @@ You can filter statistics by time period:
 
 ### Dashboard Buttons
 
-The integration provides button entities for quick access:
+The integration provides button entities for quick access. When pressed, these buttons show a notification with a clickable link to the panel:
 
-- **Add Receipt** (`button.add_receipt`) - Press to trigger a receipt add event
-- **Open Project Ledger** (`button.open_project_ledger`) - Press to trigger a panel open event
+- **Home Project Ledger Add Receipt** - Shows notification with link to add a receipt
+- **Home Project Ledger Open Project Ledger** - Shows notification with link to open the panel
 
-**Adding a Quick Add Receipt button to your dashboard:**
+**Recommended: Add navigation buttons to your dashboard:**
+
+For direct navigation without notifications, use a button card with `tap_action`:
 
 ```yaml
 type: button
-entity: button.add_receipt
 name: Add Receipt
 icon: mdi:receipt-text-plus
 tap_action:
@@ -125,25 +126,29 @@ tap_action:
   navigation_path: /home-project-ledger
 ```
 
-You can also use the FAB (floating action button) inside the panel to quickly add a receipt to any project.
-
-### Dashboard Buttons
-
-The integration provides button entities for quick access:
-
-- **Add Receipt** (`button.add_receipt`) - Press to trigger a receipt add event
-- **Open Project Ledger** (`button.open_project_ledger`) - Press to trigger a panel open event
-
-**Adding a Quick Add Receipt button to your dashboard:**
-
 ```yaml
 type: button
-entity: button.add_receipt
-name: Add Receipt
-icon: mdi:receipt-text-plus
+name: Project Ledger
+icon: mdi:home-analytics
 tap_action:
   action: navigate
   navigation_path: /home-project-ledger
+```
+
+**Using with browser_mod (for automation-triggered navigation):**
+
+If you have [browser_mod](https://github.com/thomasloven/hass-browser_mod) installed, you can create automations that navigate when the button is pressed:
+
+```yaml
+automation:
+  - alias: "Navigate to Project Ledger on button press"
+    trigger:
+      - platform: event
+        event_type: home_project_ledger_open_panel
+    action:
+      - service: browser_mod.navigate
+        data:
+          path: /home-project-ledger
 ```
 
 You can also use the FAB (floating action button) inside the panel to quickly add a receipt to any project.
