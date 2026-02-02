@@ -173,6 +173,16 @@ entities:
 - **Receipt images (local)**: `config/www/home_project_ledger/receipts/`
 - **Receipt images (cloud)**: Your configured cloud storage provider
 
+## HACS Requirements
+
+This repository is designed to be compatible with [HACS](https://hacs.xyz/) (Home Assistant Community Store). To ensure HACS validation passes, the following GitHub repository topics must be set:
+
+- `home-assistant`
+- `hacs`
+- `integration`
+
+A GitHub Actions workflow (`setup-topics.yaml`) is available to automatically set these topics when the workflow has the required permissions.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

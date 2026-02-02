@@ -273,6 +273,29 @@ logger:
 3. Make changes with tests
 4. Submit pull request
 
+### Repository Setup for Maintainers
+
+**HACS Validation Requirements:**
+
+For HACS validation to pass, the repository must have the following GitHub topics configured:
+- `home-assistant`
+- `hacs`
+- `integration`
+
+**How to Set Topics:**
+
+1. **Automatic (Recommended):** Run the "Setup Repository Topics" GitHub Actions workflow manually from the Actions tab. The workflow will automatically add the required topics if it has the necessary permissions.
+
+2. **Manual:** Go to the repository's main page on GitHub, click on the gear icon (⚙️) next to "About", and add the topics in the "Topics" field.
+
+**Verifying Topics:**
+You can verify topics are set correctly by running:
+```bash
+gh api repos/FredrikElliot/home-project-ledger --jq '.topics'
+```
+
+Or by checking the HACS validation workflow status.
+
 ### Code Style
 - Follow Home Assistant's coding standards
 - Use type hints
