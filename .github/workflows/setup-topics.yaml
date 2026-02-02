@@ -54,3 +54,4 @@ jobs:
               console.log('Please manually add the following topics to the repository:');
               console.log(requiredTopics.join(', '));
             }
+
