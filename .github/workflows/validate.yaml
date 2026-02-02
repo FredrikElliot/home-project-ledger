@@ -7,9 +7,45 @@ on:
     - cron: "0 0 * * *"
   workflow_dispatch:
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
+  check-topics:
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: Check repository topics
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const requiredTopics = ['home-assistant', 'hacs', 'integration'];
+            
+            try {
+              const { data: repo } = await github.rest.repos.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo
+              });
+              
+              const currentTopics = repo.topics || [];
+              const missingTopics = requiredTopics.filter(topic => !currentTopics.includes(topic));
+              
+              console.log('Current repository topics:', currentTopics.join(', ') || 'None');
+              console.log('Required topics:', requiredTopics.join(', '));
+              
+              if (missingTopics.length > 0) {
+                console.log('\n⚠️  Missing topics:', missingTopics.join(', '));
+                console.log('\n📝 To fix this, add the missing topics to the repository:');
+                console.log('   1. Go to the repository page on GitHub');
+                console.log('   2. Click the gear icon (⚙️) next to "About"');
+                console.log('   3. Add these topics:', missingTopics.join(', '));
+                console.log('\n   Or run the "Setup Repository Topics" workflow from the Actions tab.');
+              } else {
+                console.log('\n✅ All required topics are present!');
+              }
+            } catch (error) {
+              console.error('Error checking topics:', error.message);
+            }
+  
   validate-hacs:
     runs-on: "ubuntu-latest"
     steps:
