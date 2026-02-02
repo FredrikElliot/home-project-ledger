@@ -495,6 +495,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
       customDateRange: null, // { start: 'YYYY-MM-DD', end: 'YYYY-MM-DD' }
       expandedProjectId: null,
       expandedReceiptId: null, // For showing receipt detail inline
+      expandedMerchant: null, // For showing receipts under a merchant
+      expandedCategory: null, // For showing receipts under a category
       detailPhotoIndex: 0, // For selecting which photo to show in receipt detail
       openMenuId: null,
       modal: null,
@@ -1011,6 +1013,16 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .list-item { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--divider-color, #e0e0e0); cursor: pointer; transition: background-color 0.1s; }
         .list-item:last-child { border-bottom: none; }
         .list-item:hover { background-color: var(--secondary-background-color, #f5f5f5); }
+        .list-item-expandable { flex-direction: column; align-items: stretch; padding: 0; }
+        .list-item-expandable:hover { background-color: transparent; }
+        .list-item-header { display: flex; align-items: center; padding: 12px 16px; cursor: pointer; transition: background-color 0.1s; }
+        .list-item-header:hover { background-color: var(--secondary-background-color, #f5f5f5); }
+        .list-item-chevron { width: 24px; height: 24px; color: var(--secondary-text-color, #757575); transition: transform 0.2s ease; flex-shrink: 0; margin-right: 8px; }
+        .list-item-expandable.expanded .list-item-chevron { transform: rotate(180deg); }
+        .list-item-receipts { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; background-color: var(--secondary-background-color, rgba(0,0,0,0.02)); }
+        .list-item-expandable.expanded .list-item-receipts { max-height: 2000px; }
+        .list-item-receipts .receipt-list { border-top: 1px solid var(--divider-color, #e0e0e0); }
+        .list-item-receipts .receipt-item-wrapper { padding-left: 16px; }
         .list-item-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 16px; flex-shrink: 0; background-color: var(--secondary-background-color, #f5f5f5); color: var(--secondary-text-color, #757575); }
         .list-item-icon svg { width: 24px; height: 24px; }
         .list-item-content { flex: 1; min-width: 0; }
@@ -1185,13 +1197,14 @@ class HomeProjectLedgerPanel extends HTMLElement {
   _render() {
     if (!this._container) return;
 
-    // Collect all receipts from all projects
+    // Collect all receipts from all projects and store in state
     const allReceipts = [];
     this._state.projects.forEach(p => {
       (p.receipts || []).forEach(r => {
         allReceipts.push({ ...r, project_id: p.project_id, project_name: p.name });
       });
     });
+    this._state.receipts = allReceipts;
 
     // Collect merchants with totals
     const merchantMap = new Map();
@@ -2576,6 +2589,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
 
   _renderMerchantsTab(merchants) {
     const storeIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M18.36,9L18.96,12H5.04L5.64,9H18.36M20,4H4V6H20V4M20,7H4L3,12V14H4V20H14V14H18V20H20V14H21V12L20,7M6,18V14H12V18H6Z"/></svg>';
+    const chevronIcon = '<svg class="list-item-chevron" viewBox="0 0 24 24"><path fill="currentColor" d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/></svg>';
 
     const total = merchants.reduce((sum, m) => sum + m.total, 0);
 
@@ -2584,16 +2598,22 @@ class HomeProjectLedgerPanel extends HTMLElement {
       merchantsList = '<div class="empty-state"><h3>' + this._t('noMerchantsYet') + '</h3><p>' + this._t('noMerchantsDesc') + '</p></div>';
     } else {
       const receiptText = (count) => count === 1 ? this._t('receipt') : this._t('receiptsPlural');
-      merchantsList = '<div class="project-list">' + merchants.map(m => 
-        '<div class="list-item">' +
-          '<div class="list-item-icon">' + storeIcon + '</div>' +
-          '<div class="list-item-content">' +
-            '<div class="list-item-title">' + this._escapeHtml(m.name) + '</div>' +
-            '<div class="list-item-subtitle">' + m.count + ' ' + receiptText(m.count) + '</div>' +
+      merchantsList = '<div class="project-list">' + merchants.map(m => {
+        const isExpanded = this._state.expandedMerchant === m.name;
+        const receiptsHtml = isExpanded ? this._renderMerchantReceipts(m.name) : '';
+        return '<div class="list-item list-item-expandable' + (isExpanded ? ' expanded' : '') + '" data-merchant-name="' + this._escapeHtml(m.name) + '">' +
+          '<div class="list-item-header" data-action="toggle-merchant" data-merchant-name="' + this._escapeHtml(m.name) + '">' +
+            chevronIcon +
+            '<div class="list-item-icon">' + storeIcon + '</div>' +
+            '<div class="list-item-content">' +
+              '<div class="list-item-title">' + this._escapeHtml(m.name) + '</div>' +
+              '<div class="list-item-subtitle">' + m.count + ' ' + receiptText(m.count) + '</div>' +
+            '</div>' +
+            '<div class="list-item-value">' + this._formatCurrency(m.total) + '</div>' +
           '</div>' +
-          '<div class="list-item-value">' + this._formatCurrency(m.total) + '</div>' +
-        '</div>'
-      ).join('') + '</div>';
+          '<div class="list-item-receipts">' + receiptsHtml + '</div>' +
+        '</div>';
+      }).join('') + '</div>';
     }
 
     return '<div class="page-header"><h1>' + this._t('merchants') + '</h1></div>' +
@@ -2603,9 +2623,22 @@ class HomeProjectLedgerPanel extends HTMLElement {
       '</div>' +
       '<div class="card">' + merchantsList + '</div>';
   }
+  
+  _renderMerchantReceipts(merchantName) {
+    const receipts = this._state.receipts
+      .filter(r => r.merchant === merchantName)
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    
+    if (receipts.length === 0) return '';
+    
+    return '<div class="receipt-list">' + receipts.map(r => 
+      this._renderReceiptItem(r, r.project_id)
+    ).join('') + '</div>';
+  }
 
   _renderCategoriesTab(categories) {
     const tagIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M5.5,7A1.5,1.5 0 0,1 4,5.5A1.5,1.5 0 0,1 5.5,4A1.5,1.5 0 0,1 7,5.5A1.5,1.5 0 0,1 5.5,7M21.41,11.58L12.41,2.58C12.05,2.22 11.55,2 11,2H4C2.89,2 2,2.89 2,4V11C2,11.55 2.22,12.05 2.59,12.41L11.58,21.41C11.95,21.77 12.45,22 13,22C13.55,22 14.05,21.77 14.41,21.41L21.41,14.41C21.78,14.05 22,13.55 22,13C22,12.44 21.77,11.94 21.41,11.58Z"/></svg>';
+    const chevronIcon = '<svg class="list-item-chevron" viewBox="0 0 24 24"><path fill="currentColor" d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/></svg>';
 
     const total = categories.reduce((sum, c) => sum + c.total, 0);
 
@@ -2614,16 +2647,22 @@ class HomeProjectLedgerPanel extends HTMLElement {
     if (categories.length === 0) {
       categoriesList = '<div class="empty-state"><h3>' + this._t('noCategoriesYet') + '</h3><p>' + this._t('noCategoriesDesc') + '</p></div>';
     } else {
-      categoriesList = '<div class="project-list">' + categories.map(c => 
-        '<div class="list-item">' +
-          '<div class="list-item-icon">' + tagIcon + '</div>' +
-          '<div class="list-item-content">' +
-            '<div class="list-item-title">' + this._escapeHtml(c.name) + '</div>' +
-            '<div class="list-item-subtitle">' + c.count + ' ' + receiptText(c.count) + '</div>' +
+      categoriesList = '<div class="project-list">' + categories.map(c => {
+        const isExpanded = this._state.expandedCategory === c.name;
+        const receiptsHtml = isExpanded ? this._renderCategoryReceipts(c.name) : '';
+        return '<div class="list-item list-item-expandable' + (isExpanded ? ' expanded' : '') + '" data-category-name="' + this._escapeHtml(c.name) + '">' +
+          '<div class="list-item-header" data-action="toggle-category" data-category-name="' + this._escapeHtml(c.name) + '">' +
+            chevronIcon +
+            '<div class="list-item-icon">' + tagIcon + '</div>' +
+            '<div class="list-item-content">' +
+              '<div class="list-item-title">' + this._escapeHtml(c.name) + '</div>' +
+              '<div class="list-item-subtitle">' + c.count + ' ' + receiptText(c.count) + '</div>' +
+            '</div>' +
+            '<div class="list-item-value">' + this._formatCurrency(c.total) + '</div>' +
           '</div>' +
-          '<div class="list-item-value">' + this._formatCurrency(c.total) + '</div>' +
-        '</div>'
-      ).join('') + '</div>';
+          '<div class="list-item-receipts">' + receiptsHtml + '</div>' +
+        '</div>';
+      }).join('') + '</div>';
     }
 
     return '<div class="page-header"><h1>' + this._t('categories') + '</h1></div>' +
@@ -2632,6 +2671,21 @@ class HomeProjectLedgerPanel extends HTMLElement {
         '<div class="stat-card"><div class="stat-label">' + this._t('totalSpend') + '</div><div class="stat-value">' + this._formatCurrency(total) + '</div></div>' +
       '</div>' +
       '<div class="card">' + categoriesList + '</div>';
+  }
+  
+  _renderCategoryReceipts(categoryName) {
+    const receipts = this._state.receipts
+      .filter(r => {
+        const cats = r.category_summary ? r.category_summary.split(',').map(c => c.trim()) : [];
+        return cats.includes(categoryName);
+      })
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    
+    if (receipts.length === 0) return '';
+    
+    return '<div class="receipt-list">' + receipts.map(r => 
+      this._renderReceiptItem(r, r.project_id)
+    ).join('') + '</div>';
   }
 
   _renderSettingsTab() {
@@ -4033,6 +4087,26 @@ class HomeProjectLedgerPanel extends HTMLElement {
           this._state.photoViewerIndex = photoIndex;
           this._render();
         }
+        break;
+      case "toggle-merchant":
+        const merchantName = dataset.merchantName;
+        if (this._state.expandedMerchant === merchantName) {
+          this._state.expandedMerchant = null;
+        } else {
+          this._state.expandedMerchant = merchantName;
+        }
+        this._state.expandedReceiptId = null;
+        this._render();
+        break;
+      case "toggle-category":
+        const categoryName = dataset.categoryName;
+        if (this._state.expandedCategory === categoryName) {
+          this._state.expandedCategory = null;
+        } else {
+          this._state.expandedCategory = categoryName;
+        }
+        this._state.expandedReceiptId = null;
+        this._render();
         break;
       case "toggle-receipt":
         const receiptIdToToggle = dataset.receiptId;
