@@ -864,25 +864,44 @@ class HomeProjectLedgerPanel extends HTMLElement {
         @media (min-width: 480px) { .donut-chart-container { flex-wrap: nowrap; } }
         .donut-chart { position: relative; width: 160px; height: 160px; flex-shrink: 0; }
         .donut-chart svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-        .donut-chart-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+        .donut-chart-segment { cursor: pointer; transition: opacity 0.15s ease; }
+        .donut-chart-segment:hover { opacity: 0.8; }
+        .donut-chart-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; }
         .donut-chart-center-value { font-size: 24px; font-weight: 500; color: var(--primary-text-color, #212121); }
         .donut-chart-center-label { font-size: 11px; color: var(--secondary-text-color, #757575); text-transform: uppercase; }
         .donut-legend { flex: 1; min-width: 150px; }
-        .donut-legend-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--divider-color, #e0e0e0); }
+        .donut-legend-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--divider-color, #e0e0e0); cursor: pointer; transition: background-color 0.15s ease; border-radius: 4px; padding-left: 4px; margin-left: -4px; padding-right: 4px; }
+        .donut-legend-item:hover { background-color: var(--secondary-background-color, #f5f5f5); }
         .donut-legend-item:last-child { border-bottom: none; }
         .donut-legend-color { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
         .donut-legend-label { flex: 1; font-size: 12px; color: var(--primary-text-color, #212121); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .donut-legend-percent { font-size: 12px; color: var(--secondary-text-color, #757575); flex-shrink: 0; }
+        .donut-tooltip { position: fixed; background-color: var(--card-background-color, #fff); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); padding: 12px; font-size: 13px; z-index: 1000; min-width: 140px; display: none; pointer-events: none; }
+        .donut-tooltip-name { font-weight: 600; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
+        .donut-tooltip-value { font-size: 18px; font-weight: 600; color: var(--primary-color, #03a9f4); margin-bottom: 4px; }
+        .donut-tooltip-percent { font-size: 12px; color: var(--secondary-text-color, #757575); }
         
         /* Bar Chart */
         .bar-chart { padding: 8px 0; }
-        .bar-chart-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .bar-chart-row { margin-bottom: 8px; cursor: pointer; transition: background-color 0.15s ease; border-radius: 6px; padding: 4px; margin-left: -4px; margin-right: -4px; }
+        .bar-chart-row:hover { background-color: var(--secondary-background-color, #f5f5f5); }
         .bar-chart-row:last-child { margin-bottom: 0; }
+        .bar-chart-row-header { display: flex; align-items: center; gap: 12px; }
         .bar-chart-label { width: 100px; font-size: 13px; color: var(--primary-text-color, #212121); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
         .bar-chart-bar-container { flex: 1; height: 24px; background-color: var(--secondary-background-color, #f5f5f5); border-radius: 4px; overflow: hidden; position: relative; }
         .bar-chart-bar { height: 100%; border-radius: 4px; transition: width 0.5s ease; min-width: 2px; }
         .bar-chart-bar-text { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 12px; font-weight: 500; color: var(--primary-text-color, #212121); }
         .bar-chart-value { width: 80px; text-align: right; font-size: 13px; font-weight: 500; color: var(--primary-text-color, #212121); flex-shrink: 0; }
+        .bar-chart-expand-icon { width: 20px; height: 20px; flex-shrink: 0; color: var(--secondary-text-color, #757575); transition: transform 0.2s ease; }
+        .bar-chart-row.expanded .bar-chart-expand-icon { transform: rotate(180deg); }
+        .bar-chart-receipts { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+        .bar-chart-row.expanded .bar-chart-receipts { max-height: 500px; }
+        .bar-chart-receipt { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--divider-color, #e0e0e0); font-size: 12px; margin-left: 20px; }
+        .bar-chart-receipt:last-child { border-bottom: none; }
+        .bar-chart-receipt-info { display: flex; flex-direction: column; gap: 2px; flex: 1; overflow: hidden; }
+        .bar-chart-receipt-date { color: var(--secondary-text-color, #757575); }
+        .bar-chart-receipt-project { color: var(--primary-text-color, #212121); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .bar-chart-receipt-amount { font-weight: 500; color: var(--primary-text-color, #212121); flex-shrink: 0; margin-left: 12px; }
         
         /* Timeline Chart - amCharts Container */
         .timeline-chart { height: 220px; position: relative; padding: 8px 0; }
@@ -1257,6 +1276,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
       requestAnimationFrame(() => {
         this._initAmCharts();
         this._initBudgetHealthTooltips();
+        this._initDonutTooltips();
+        this._initMerchantExpanders();
       });
     }
   }
@@ -1469,12 +1490,16 @@ class HomeProjectLedgerPanel extends HTMLElement {
     const map = new Map();
     receipts.forEach(r => {
       if (r.merchant) {
-        const existing = map.get(r.merchant) || 0;
-        map.set(r.merchant, existing + (r.total || 0));
+        if (!map.has(r.merchant)) {
+          map.set(r.merchant, { value: 0, receipts: [] });
+        }
+        const entry = map.get(r.merchant);
+        entry.value += (r.total || 0);
+        entry.receipts.push(r);
       }
     });
     return Array.from(map.entries())
-      .map(([name, value]) => ({ name, value }))
+      .map(([name, data]) => ({ name, value: data.value, receipts: data.receipts.sort((a, b) => new Date(b.date) - new Date(a.date)) }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 6);
   }
@@ -1769,6 +1794,88 @@ class HomeProjectLedgerPanel extends HTMLElement {
     });
   }
   
+  _initDonutTooltips() {
+    // Get all donut segments and legend items
+    const segments = this.querySelectorAll('.donut-chart-segment');
+    const legendItems = this.querySelectorAll('.donut-legend-item');
+    
+    if (!segments.length && !legendItems.length) return;
+    
+    let tooltip = this.querySelector('.donut-tooltip');
+    if (!tooltip) {
+      tooltip = document.createElement('div');
+      tooltip.className = 'donut-tooltip';
+      this.appendChild(tooltip);
+    }
+    
+    const self = this;
+    
+    const showTooltip = (element, e) => {
+      const name = element.getAttribute('data-name');
+      const value = parseFloat(element.getAttribute('data-value')) || 0;
+      const percent = element.getAttribute('data-percent');
+      const color = element.getAttribute('data-color');
+      
+      tooltip.innerHTML = 
+        '<div class="donut-tooltip-name" style="color: ' + color + '">' + self._escapeHtml(name) + '</div>' +
+        '<div class="donut-tooltip-value">' + self._formatCurrency(value) + '</div>' +
+        '<div class="donut-tooltip-percent">' + percent + '% of total</div>';
+      
+      const rect = element.getBoundingClientRect();
+      const tooltipWidth = 160;
+      
+      // Position near the element
+      let left = e.clientX - tooltipWidth / 2;
+      let top = rect.bottom + 8;
+      
+      // For SVG circles, position near cursor
+      if (element.tagName === 'circle') {
+        top = e.clientY + 15;
+      }
+      
+      // Keep within viewport
+      if (left < 10) left = 10;
+      if (left + tooltipWidth > window.innerWidth - 10) {
+        left = window.innerWidth - tooltipWidth - 10;
+      }
+      if (top + 100 > window.innerHeight) {
+        top = e.clientY - 80;
+      }
+      
+      tooltip.style.left = left + 'px';
+      tooltip.style.top = top + 'px';
+      tooltip.style.display = 'block';
+    };
+    
+    const hideTooltip = () => {
+      tooltip.style.display = 'none';
+    };
+    
+    // Attach to segments
+    segments.forEach(segment => {
+      segment.addEventListener('mouseenter', (e) => showTooltip(segment, e));
+      segment.addEventListener('mousemove', (e) => showTooltip(segment, e));
+      segment.addEventListener('mouseleave', hideTooltip);
+    });
+    
+    // Attach to legend items
+    legendItems.forEach(item => {
+      item.addEventListener('mouseenter', (e) => showTooltip(item, e));
+      item.addEventListener('mouseleave', hideTooltip);
+    });
+  }
+  
+  _initMerchantExpanders() {
+    const rows = this.querySelectorAll('.bar-chart-row[data-merchant]');
+    
+    rows.forEach(row => {
+      row.addEventListener('click', (e) => {
+        // Toggle expanded state
+        row.classList.toggle('expanded');
+      });
+    });
+  }
+  
   _renderTimelineCard(data) {
     if (data.length === 0) {
       return '<div class="dashboard-card full-width">' +
@@ -1958,10 +2065,18 @@ class HomeProjectLedgerPanel extends HTMLElement {
         fill: am5.color(primaryColor),
       });
       
+      // Create custom HTML tooltip element
+      let customTooltip = this.querySelector('.amcharts-custom-tooltip');
+      if (!customTooltip) {
+        customTooltip = document.createElement('div');
+        customTooltip.className = 'amcharts-custom-tooltip timeline-chart-tooltip';
+        this.appendChild(customTooltip);
+      }
+      
       // Add bullets (dots) - larger and hoverable
       series.bullets.push(() => {
         const circle = am5.Circle.new(root, {
-          radius: 5,
+          radius: 6,
           fill: am5.color(bgColor),
           stroke: am5.color(primaryColor),
           strokeWidth: 2,
@@ -1970,8 +2085,55 @@ class HomeProjectLedgerPanel extends HTMLElement {
         
         // Highlight on hover
         circle.states.create("hover", {
-          radius: 7,
+          radius: 8,
           fill: am5.color(primaryColor),
+        });
+        
+        // Add hover events for custom tooltip
+        circle.events.on("pointerover", (ev) => {
+          const dataItem = ev.target.dataItem;
+          if (!dataItem) return;
+          
+          const data = dataItem.dataContext;
+          const total = self._formatCurrency(data.value);
+          const projects = data.projects || {};
+          const projectNames = Object.keys(projects).sort((a, b) => projects[b] - projects[a]);
+          
+          let content = '<div class="timeline-chart-tooltip-label">' + data.category + '</div>';
+          content += '<div class="timeline-chart-tooltip-value">' + total + '</div>';
+          
+          if (projectNames.length > 0) {
+            content += '<div class="timeline-chart-tooltip-projects">';
+            projectNames.forEach(name => {
+              const amount = self._formatCurrency(projects[name]);
+              content += '<div class="timeline-chart-tooltip-project">' +
+                '<span class="project-name">' + self._escapeHtml(name) + '</span>' +
+                '<span class="project-amount">' + amount + '</span>' +
+              '</div>';
+            });
+            content += '</div>';
+          }
+          
+          customTooltip.innerHTML = content;
+          
+          // Position the tooltip
+          const point = ev.target.toGlobal({ x: 0, y: 0 });
+          const tooltipWidth = 180;
+          let left = point.x - tooltipWidth / 2;
+          let top = point.y - 15;
+          
+          if (left < 10) left = 10;
+          if (left + tooltipWidth > window.innerWidth - 10) {
+            left = window.innerWidth - tooltipWidth - 10;
+          }
+          
+          customTooltip.style.left = left + 'px';
+          customTooltip.style.top = top + 'px';
+          customTooltip.style.display = 'block';
+        });
+        
+        circle.events.on("pointerout", () => {
+          customTooltip.style.display = 'none';
         });
         
         return am5.Bullet.new(root, {
@@ -2087,51 +2249,59 @@ class HomeProjectLedgerPanel extends HTMLElement {
     let tooltip = null;
     const self = this;
     
-    dots.forEach(dot => {
-      dot.addEventListener('mouseenter', (e) => {
-        const value = dot.getAttribute('data-value');
-        const label = dot.getAttribute('data-label');
-        let projects = {};
-        try {
-          projects = JSON.parse(dot.getAttribute('data-projects') || '{}');
-        } catch (e) {}
-        
-        const projectNames = Object.keys(projects).sort((a, b) => projects[b] - projects[a]);
-        
-        if (!tooltip) {
-          tooltip = document.createElement('div');
-          tooltip.className = 'timeline-chart-tooltip';
-          // Append to this component root for fixed positioning to work
-          self.appendChild(tooltip);
-        }
-        
-        // Build tooltip content with project breakdown
-        let content = '<div class="timeline-chart-tooltip-label">' + label + '</div>';
-        content += '<div class="timeline-chart-tooltip-value">' + value + '</div>';
-        
-        if (projectNames.length > 0) {
-          content += '<div class="timeline-chart-tooltip-projects">';
-          projectNames.forEach(name => {
-            const amount = self._formatCurrency(projects[name]);
-            content += '<div class="timeline-chart-tooltip-project">' +
-              '<span class="project-name">' + self._escapeHtml(name) + '</span>' +
-              '<span class="project-amount">' + amount + '</span>' +
-            '</div>';
-          });
-          content += '</div>';
-        }
-        
-        tooltip.innerHTML = content;
-        
-        // Use getBoundingClientRect for accurate fixed positioning
-        const dotRect = dot.getBoundingClientRect();
-        const tooltipWidth = tooltip.offsetWidth || 160;
-        
-        tooltip.style.left = (dotRect.left + dotRect.width / 2 - tooltipWidth / 2) + 'px';
-        tooltip.style.top = (dotRect.top - 10) + 'px';
-        tooltip.style.display = 'block';
-      });
+    const showTooltip = (dot, e) => {
+      const value = dot.getAttribute('data-value');
+      const label = dot.getAttribute('data-label');
+      let projects = {};
+      try {
+        projects = JSON.parse(dot.getAttribute('data-projects') || '{}');
+      } catch (err) {}
       
+      const projectNames = Object.keys(projects).sort((a, b) => projects[b] - projects[a]);
+      
+      if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.className = 'timeline-chart-tooltip';
+        self.appendChild(tooltip);
+      }
+      
+      // Build tooltip content with project breakdown
+      let content = '<div class="timeline-chart-tooltip-label">' + label + '</div>';
+      content += '<div class="timeline-chart-tooltip-value">' + value + '</div>';
+      
+      if (projectNames.length > 0) {
+        content += '<div class="timeline-chart-tooltip-projects">';
+        projectNames.forEach(name => {
+          const amount = self._formatCurrency(projects[name]);
+          content += '<div class="timeline-chart-tooltip-project">' +
+            '<span class="project-name">' + self._escapeHtml(name) + '</span>' +
+            '<span class="project-amount">' + amount + '</span>' +
+          '</div>';
+        });
+        content += '</div>';
+      }
+      
+      tooltip.innerHTML = content;
+      
+      // Position above the cursor
+      const tooltipWidth = 180;
+      let left = e.clientX - tooltipWidth / 2;
+      let top = e.clientY - 15;
+      
+      // Keep within viewport
+      if (left < 10) left = 10;
+      if (left + tooltipWidth > window.innerWidth - 10) {
+        left = window.innerWidth - tooltipWidth - 10;
+      }
+      
+      tooltip.style.left = left + 'px';
+      tooltip.style.top = top + 'px';
+      tooltip.style.display = 'block';
+    };
+    
+    dots.forEach(dot => {
+      dot.addEventListener('mouseenter', (e) => showTooltip(dot, e));
+      dot.addEventListener('mousemove', (e) => showTooltip(dot, e));
       dot.addEventListener('mouseleave', () => {
         if (tooltip) {
           tooltip.style.display = 'none';
@@ -2164,14 +2334,15 @@ class HomeProjectLedgerPanel extends HTMLElement {
       const segmentLength = (percentage / 100) * circumference;
       const color = CHART_COLORS[i % CHART_COLORS.length];
       
-      segmentsHtml += '<circle cx="80" cy="80" r="' + radius + '" fill="none" stroke="' + color + '" stroke-width="' + strokeWidth + '" ' +
+      segmentsHtml += '<circle class="donut-chart-segment" cx="80" cy="80" r="' + radius + '" fill="none" stroke="' + color + '" stroke-width="' + strokeWidth + '" ' +
         'stroke-dasharray="' + segmentLength + ' ' + (circumference - segmentLength) + '" ' +
         'stroke-dashoffset="' + (-currentOffset) + '" ' +
+        'data-name="' + this._escapeHtml(d.name) + '" data-value="' + d.value + '" data-percent="' + percentage.toFixed(1) + '" data-color="' + color + '" ' +
         'style="transition: stroke-dashoffset 0.5s ease;"/>';
       
       currentOffset += segmentLength;
       
-      legendHtml += '<div class="donut-legend-item">' +
+      legendHtml += '<div class="donut-legend-item" data-name="' + this._escapeHtml(d.name) + '" data-value="' + d.value + '" data-percent="' + percentage.toFixed(1) + '" data-color="' + color + '">' +
         '<div class="donut-legend-color" style="background-color: ' + color + ';"></div>' +
         '<div class="donut-legend-label">' + this._escapeHtml(d.name) + '</div>' +
         '<div class="donut-legend-percent">' + percentage.toFixed(0) + '%</div>' +
@@ -2209,18 +2380,38 @@ class HomeProjectLedgerPanel extends HTMLElement {
     }
     
     const maxValue = Math.max(...data.map(d => d.value), 1);
+    const expandIcon = '<svg class="bar-chart-expand-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/></svg>';
     
     let barsHtml = '';
     data.forEach((d, i) => {
       const percentage = (d.value / maxValue) * 100;
       const color = CHART_COLORS[i % CHART_COLORS.length];
+      const receipts = d.receipts || [];
       
-      barsHtml += '<div class="bar-chart-row">' +
-        '<div class="bar-chart-label" title="' + this._escapeHtml(d.name) + '">' + this._escapeHtml(d.name) + '</div>' +
-        '<div class="bar-chart-bar-container">' +
-          '<div class="bar-chart-bar" style="width: ' + percentage + '%; background-color: ' + color + ';"></div>' +
+      let receiptsHtml = '';
+      receipts.slice(0, 5).forEach(r => {
+        receiptsHtml += '<div class="bar-chart-receipt">' +
+          '<div class="bar-chart-receipt-info">' +
+            '<div class="bar-chart-receipt-date">' + (r.date || '') + '</div>' +
+            '<div class="bar-chart-receipt-project">' + this._escapeHtml(r.project_name || this._t('unknown')) + '</div>' +
+          '</div>' +
+          '<div class="bar-chart-receipt-amount">' + this._formatCurrency(r.total || 0) + '</div>' +
+        '</div>';
+      });
+      if (receipts.length > 5) {
+        receiptsHtml += '<div class="bar-chart-receipt" style="color: var(--secondary-text-color); justify-content: center;">+' + (receipts.length - 5) + ' more</div>';
+      }
+      
+      barsHtml += '<div class="bar-chart-row" data-merchant="' + this._escapeHtml(d.name) + '">' +
+        '<div class="bar-chart-row-header">' +
+          expandIcon +
+          '<div class="bar-chart-label" title="' + this._escapeHtml(d.name) + '">' + this._escapeHtml(d.name) + '</div>' +
+          '<div class="bar-chart-bar-container">' +
+            '<div class="bar-chart-bar" style="width: ' + percentage + '%; background-color: ' + color + ';"></div>' +
+          '</div>' +
+          '<div class="bar-chart-value">' + this._formatCurrency(d.value) + '</div>' +
         '</div>' +
-        '<div class="bar-chart-value">' + this._formatCurrency(d.value) + '</div>' +
+        '<div class="bar-chart-receipts">' + receiptsHtml + '</div>' +
       '</div>';
     });
     
