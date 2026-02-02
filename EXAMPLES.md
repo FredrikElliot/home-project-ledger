@@ -1,316 +1,309 @@
-# Example Automations and Scripts
+# Example Automations and Dashboard Cards
 
-## Example Automations
+## Automations
 
-### 1. Notify when project spending exceeds threshold
+### Budget Alert - Project Exceeds Threshold
 
 ```yaml
 automation:
   - alias: "Project Budget Alert"
-    description: "Send notification when project spending exceeds 10,000 SEK"
+    description: "Notify when project spending exceeds 75% of budget"
     trigger:
-      - platform: state
-        entity_id: sensor.home_project_ledger_project_kitchen_renovation_spend
-    condition:
-      - condition: numeric_state
-        entity_id: sensor.home_project_ledger_project_kitchen_renovation_spend
-        above: 10000
+      - platform: template
+        value_template: >
+          {% set sensor = 'sensor.home_project_ledger_project_kitchen_renovation_spend' %}
+          {% set spend = states(sensor) | float(0) %}
+          {% set budget = state_attr(sensor, 'budget') | float(0) %}
+          {{ budget > 0 and (spend / budget) >= 0.75 }}
     action:
       - service: notify.mobile_app
         data:
           title: "Budget Alert: Kitchen Renovation"
-          message: "Project spending has exceeded 10,000 SEK. Current: {{ states('sensor.home_project_ledger_project_kitchen_renovation_spend') }} SEK"
+          message: >
+            Project is at {{ ((states('sensor.home_project_ledger_project_kitchen_renovation_spend') | float / 
+            state_attr('sensor.home_project_ledger_project_kitchen_renovation_spend', 'budget') | float) * 100) | round(0) }}% of budget!
+          data:
+            actions:
+              - action: URI
+                title: "View Project"
+                uri: /home-project-ledger
 ```
 
-### 2. Close project automatically when spending stops
-
-```yaml
-automation:
-  - alias: "Auto-close inactive projects"
-    description: "Close projects with no receipts added in 30 days"
-    trigger:
-      - platform: time
-        at: "00:00:00"
-    action:
-      - service: python_script.close_inactive_projects
-        data:
-          days_inactive: 30
-```
-
-### 3. Weekly spending summary
+### Weekly Spending Summary
 
 ```yaml
 automation:
   - alias: "Weekly Project Spending Summary"
-    description: "Send weekly summary of all project spending"
     trigger:
       - platform: time
         at: "18:00:00"
-      - platform: time
-        at: "sunday"
+    condition:
+      - condition: time
+        weekday:
+          - sun
     action:
       - service: notify.email
         data:
           title: "Weekly Home Project Summary"
-          message: >
+          message: |
             Total House Spend: {{ states('sensor.home_project_ledger_total_house_spend') }} SEK
             
-            Open Projects:
-            - Kitchen: {{ states('sensor.home_project_ledger_project_kitchen_renovation_spend') }} SEK
-            - Bathroom: {{ states('sensor.home_project_ledger_project_bathroom_remodel_spend') }} SEK
+            This week's activity is available in your Project Ledger dashboard.
+          data:
+            url: /home-project-ledger
 ```
 
-## Example Scripts
+### New Receipt Notification
 
-### 1. Create project with notification
+```yaml
+automation:
+  - alias: "Receipt Added Notification"
+    trigger:
+      - platform: state
+        entity_id: sensor.home_project_ledger_total_house_spend
+    condition:
+      - condition: template
+        value_template: "{{ trigger.from_state.state != trigger.to_state.state }}"
+    action:
+      - service: notify.mobile_app
+        data:
+          title: "Receipt Added"
+          message: "New spending recorded. Total: {{ states('sensor.home_project_ledger_total_house_spend') }} SEK"
+```
+
+## Scripts
+
+### Create Project with Notification
 
 ```yaml
 script:
   create_home_project:
     alias: "Create Home Project"
-    description: "Create a new home project with notification"
     fields:
       project_name:
         description: "Name of the project"
-        example: "Kitchen Renovation"
-      area_id:
-        description: "Area ID"
-        example: "kitchen"
+        example: "Bathroom Remodel"
+      budget:
+        description: "Project budget"
+        example: 25000
     sequence:
       - service: home_project_ledger.create_project
         data:
           name: "{{ project_name }}"
-          area_id: "{{ area_id }}"
+          budget: "{{ budget | float }}"
       - service: notify.mobile_app
         data:
-          title: "New Project Created"
-          message: "Started tracking '{{ project_name }}'"
+          title: "Project Created"
+          message: "Started tracking '{{ project_name }}' with budget {{ budget }} SEK"
 ```
 
-### 2. Add receipt from camera
+### Quick Add Receipt
 
 ```yaml
 script:
-  add_receipt_from_camera:
-    alias: "Add Receipt from Camera"
-    description: "Capture receipt with camera and add to project"
+  quick_add_receipt:
+    alias: "Quick Add Receipt"
     fields:
       project_id:
         description: "Project ID"
-        example: "abc-123-def-456"
       merchant:
-        description: "Merchant name"
-        example: "IKEA"
-      total:
-        description: "Total amount"
-        example: 1299.50
+        description: "Store name"
+      amount:
+        description: "Amount spent"
     sequence:
-      # In MVP, manually input data - future: OCR parsing
       - service: home_project_ledger.add_receipt
         data:
           project_id: "{{ project_id }}"
           merchant: "{{ merchant }}"
           date: "{{ now().strftime('%Y-%m-%d') }}"
-          total: "{{ total }}"
+          total: "{{ amount | float }}"
           currency: "SEK"
       - service: notify.mobile_app
         data:
-          message: "Receipt added to project"
+          message: "Added {{ amount }} SEK receipt from {{ merchant }}"
 ```
 
-### 3. Complete project workflow
+## Dashboard Cards
+
+### Navigation Button
 
 ```yaml
-script:
-  complete_project:
-    alias: "Complete Project"
-    description: "Close project and send summary"
-    fields:
-      project_id:
-        description: "Project ID"
-        example: "abc-123-def-456"
-    sequence:
-      - service: home_project_ledger.close_project
-        data:
-          project_id: "{{ project_id }}"
-      - service: notify.email
-        data:
-          title: "Project Completed"
-          message: >
-            Project has been closed.
-            Final spending: {{ states('sensor.home_project_ledger_project_' ~ project_id ~ '_spend') }} SEK
+type: button
+name: Project Ledger
+icon: mdi:notebook-edit
+tap_action:
+  action: navigate
+  navigation_path: /home-project-ledger
+hold_action:
+  action: more-info
+  entity: sensor.home_project_ledger_total_house_spend
 ```
 
-## Dashboard Card Examples
+### Total Spending Card
 
-### 1. Project overview card
+```yaml
+type: entity
+entity: sensor.home_project_ledger_total_house_spend
+name: Total Home Spending
+icon: mdi:home-currency-usd
+```
+
+### Project List Card
 
 ```yaml
 type: entities
-title: Home Project Ledger
+title: Active Projects
+show_header_toggle: false
 entities:
-  - entity: sensor.home_project_ledger_total_house_spend
-    name: Total House Spend
-  - type: divider
   - entity: sensor.home_project_ledger_project_kitchen_renovation_spend
     name: Kitchen Renovation
+    icon: mdi:countertop
   - entity: sensor.home_project_ledger_project_bathroom_remodel_spend
     name: Bathroom Remodel
-```
-
-### 2. Statistics card
-
-```yaml
-type: statistic
-entity: sensor.home_project_ledger_total_house_spend
-period:
-  calendar:
-    period: month
-stat_type: change
-name: Monthly Spending
-```
-
-### 3. Gauge card for budget tracking
-
-```yaml
-type: gauge
-entity: sensor.home_project_ledger_project_kitchen_renovation_spend
-min: 0
-max: 50000
-severity:
-  green: 0
-  yellow: 35000
-  red: 45000
-name: Kitchen Renovation Budget
-```
-
-### 4. Markdown card with project list
-
-```yaml
-type: markdown
-content: >
-  ## Active Projects
-  
-  **Kitchen Renovation**: {{ states('sensor.home_project_ledger_project_kitchen_renovation_spend') }} {{ state_attr('sensor.home_project_ledger_project_kitchen_renovation_spend', 'unit_of_measurement') }}
-  
-  **Bathroom Remodel**: {{ states('sensor.home_project_ledger_project_bathroom_remodel_spend') }} {{ state_attr('sensor.home_project_ledger_project_bathroom_remodel_spend', 'unit_of_measurement') }}
-  
-  ---
-  
-  **Total**: {{ states('sensor.home_project_ledger_total_house_spend') }} {{ state_attr('sensor.home_project_ledger_total_house_spend', 'unit_of_measurement') }}
-```
-
-## Lovelace UI Examples
-
-### Full project dashboard
-
-```yaml
-title: Home Projects
-path: projects
-icon: mdi:notebook-edit
-badges: []
-cards:
-  - type: horizontal-stack
-    cards:
-      - type: statistic
-        entity: sensor.home_project_ledger_total_house_spend
-        name: Total Spend
-        period:
-          calendar:
-            period: year
-      - type: sensor
-        entity: sensor.home_project_ledger_total_house_spend
-        name: Current Total
-        graph: line
-  
-  - type: entities
-    title: Open Projects
-    entities:
-      - entity: sensor.home_project_ledger_project_kitchen_renovation_spend
-        type: custom:bar-card
-        max: 50000
-      - entity: sensor.home_project_ledger_project_bathroom_remodel_spend
-        type: custom:bar-card
-        max: 30000
-  
-  - type: custom:button-card
-    name: Open Project Ledger
-    icon: mdi:notebook-edit
+    icon: mdi:shower
+  - type: button
+    name: View All Projects
+    icon: mdi:arrow-right
+    action_name: Open
     tap_action:
       action: navigate
       navigation_path: /home-project-ledger
 ```
 
-## Service Call Examples (Developer Tools)
+### Statistics Graph
 
-### Create a project
 ```yaml
-service: home_project_ledger.create_project
-data:
-  name: "Living Room Renovation"
-  area_id: "living_room"
+type: statistics-graph
+title: Monthly Spending Trend
+entities:
+  - sensor.home_project_ledger_total_house_spend
+stat_types:
+  - sum
+period:
+  calendar:
+    period: month
 ```
 
-### Add a receipt
+### Gauge Card for Budget
+
 ```yaml
-service: home_project_ledger.add_receipt
-data:
-  project_id: "your-project-id-here"
-  merchant: "Bauhaus"
-  date: "2024-01-30"
-  total: 2499.00
-  currency: "SEK"
-  category_summary: "Paint and supplies"
+type: gauge
+entity: sensor.home_project_ledger_project_kitchen_renovation_spend
+name: Kitchen Budget
+min: 0
+max: 50000
+severity:
+  green: 0
+  yellow: 37500
+  red: 45000
+needle: true
 ```
 
-### Close a project
+### Conditional Budget Warning
+
 ```yaml
-service: home_project_ledger.close_project
-data:
-  project_id: "your-project-id-here"
+type: conditional
+conditions:
+  - entity: sensor.home_project_ledger_project_kitchen_renovation_spend
+    state_not: unavailable
+  - condition: numeric_state
+    entity: sensor.home_project_ledger_project_kitchen_renovation_spend
+    above: 37500
+card:
+  type: markdown
+  content: |
+    ## ⚠️ Budget Warning
+    Kitchen renovation is approaching budget limit!
 ```
 
-## Node-RED Examples
+### Mushroom Cards (if installed)
 
-### Flow: Add receipt via voice assistant
-
-```json
-[
-  {
-    "id": "voice_receipt",
-    "type": "voice-assistant-in",
-    "name": "Add Receipt Command",
-    "outputs": 1
-  },
-  {
-    "id": "parse_voice",
-    "type": "function",
-    "func": "const merchant = msg.payload.merchant;\nconst amount = msg.payload.amount;\nreturn { payload: { merchant, amount } };",
-    "outputs": 1
-  },
-  {
-    "id": "add_receipt_service",
-    "type": "call-service",
-    "service": "home_project_ledger.add_receipt",
-    "data": {
-      "project_id": "current-project-id",
-      "merchant": "{{ payload.merchant }}",
-      "total": "{{ payload.amount }}",
-      "date": "{{ now() }}",
-      "currency": "SEK"
-    }
-  }
-]
+```yaml
+type: custom:mushroom-entity-card
+entity: sensor.home_project_ledger_total_house_spend
+name: Home Projects
+icon: mdi:notebook-edit
+tap_action:
+  action: navigate
+  navigation_path: /home-project-ledger
+fill_container: true
 ```
 
-## Tips
+### Grid Layout
 
-1. **Use sensors in templates**: All project and area sensors can be used in templates for custom cards and automations.
+```yaml
+type: grid
+columns: 2
+square: false
+cards:
+  - type: entity
+    entity: sensor.home_project_ledger_total_house_spend
+    name: Total Spend
+  - type: button
+    name: Add Receipt
+    icon: mdi:receipt-text-plus
+    tap_action:
+      action: navigate
+      navigation_path: /home-project-ledger
+  - type: entity
+    entity: sensor.home_project_ledger_project_kitchen_renovation_spend
+    name: Kitchen
+  - type: entity
+    entity: sensor.home_project_ledger_project_bathroom_remodel_spend
+    name: Bathroom
+```
 
-2. **Track spending over time**: Use the Long-Term Statistics feature to track historical spending trends.
+## Voice Assistant Integration
 
-3. **Create views per area**: Organize your dashboard with separate views for each area/room.
+### Intent Script (with Assist)
 
-4. **Backup your data**: The integration stores data in `.storage/` - include this in your Home Assistant backups.
+```yaml
+intent_script:
+  GetProjectSpending:
+    speech:
+      text: >
+        Your total home project spending is {{ states('sensor.home_project_ledger_total_house_spend') }} SEK.
+```
 
-5. **Custom notifications**: Create rich notifications with project details using sensor attributes.
+### Custom Sentence
+
+```yaml
+# In custom_sentences/en/home_projects.yaml
+language: "en"
+intents:
+  GetProjectSpending:
+    data:
+      - sentences:
+          - "how much have I spent on home projects"
+          - "what is my total project spending"
+          - "home project total"
+```
+
+## Helper Entities
+
+### Template Sensor for Budget Remaining
+
+```yaml
+template:
+  - sensor:
+      - name: "Kitchen Budget Remaining"
+        unit_of_measurement: "SEK"
+        state: >
+          {% set spent = states('sensor.home_project_ledger_project_kitchen_renovation_spend') | float(0) %}
+          {% set budget = state_attr('sensor.home_project_ledger_project_kitchen_renovation_spend', 'budget') | float(0) %}
+          {{ (budget - spent) | round(2) }}
+        icon: mdi:cash-minus
+```
+
+### Input Number for Budget Threshold
+
+```yaml
+input_number:
+  project_alert_threshold:
+    name: Budget Alert Threshold
+    min: 50
+    max: 100
+    step: 5
+    unit_of_measurement: "%"
+    icon: mdi:percent
+```

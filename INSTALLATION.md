@@ -1,4 +1,4 @@
-# Installation and Testing Guide
+# Installation Guide
 
 ## Prerequisites
 
@@ -9,6 +9,10 @@
 ## Installation Methods
 
 ### Method 1: HACS (Recommended)
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=FredrikElliot&repository=home-project-ledger&category=integration)
+
+**Or manually:**
 
 1. **Add Custom Repository**
    - Open HACS in Home Assistant
@@ -29,21 +33,20 @@
    - Click "+ Add Integration"
    - Search for "Home Project Ledger"
    - Follow the configuration wizard
-   - Choose your default currency (e.g., SEK, USD, EUR)
 
 ### Method 2: Manual Installation
 
 1. **Download Release**
    ```bash
    cd /config
-   wget https://github.com/FredrikElliot/home-project-ledger/archive/refs/tags/v0.1.0.tar.gz
-   tar -xzf v0.1.0.tar.gz
+   wget https://github.com/FredrikElliot/home-project-ledger/archive/refs/tags/v1.0.0.tar.gz
+   tar -xzf v1.0.0.tar.gz
    ```
 
 2. **Copy Files**
    ```bash
    mkdir -p custom_components
-   cp -r home-project-ledger-0.1.0/custom_components/home_project_ledger custom_components/
+   cp -r home-project-ledger-1.0.0/custom_components/home_project_ledger custom_components/
    ```
 
 3. **Restart Home Assistant**
@@ -55,331 +58,117 @@
    ```
 
 4. **Configure Integration**
-   - Same as HACS method steps 3
+   - Same as HACS method step 3
+
+## Configuration Options
+
+During setup, you'll be asked to configure:
+
+### Currency
+Choose your default currency for receipts:
+- SEK (Swedish Krona)
+- USD (US Dollar)
+- EUR (Euro)
+- Any valid ISO 4217 currency code
+
+### Storage Provider
+Choose where to store receipt images:
+
+- **Local Storage** (Default)
+  - Images stored on your Home Assistant server
+  - Located in `config/www/home_project_ledger/receipts/`
+  - No additional setup required
+
+- **Google Drive**
+  - Images stored in your Google Drive
+  - Requires OAuth setup (see Cloud Storage Setup below)
+
+## Cloud Storage Setup (Optional)
+
+### Google Drive
+
+1. **Create OAuth Credentials**
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project or select existing
+   - Enable the Google Drive API
+   - Create OAuth 2.0 credentials (Web application)
+   - Add authorized redirect URI: `https://my.home-assistant.io/redirect/oauth`
+
+2. **Add Application Credentials in HA**
+   - Go to Settings → Devices & Services → Application Credentials
+   - Click "Add Application Credentials"
+   - Select "Home Project Ledger"
+   - Enter your Client ID and Client Secret
+
+3. **Configure Integration**
+   - When adding the integration, select "Google Drive"
+   - Complete the OAuth authorization flow
 
 ## Post-Installation Verification
 
-### 1. Check Integration Loaded
-
-```bash
-# Check logs for successful load
-grep "home_project_ledger" /config/home-assistant.log
-
-# Expected output:
-# INFO (MainThread) [homeassistant.setup] Setting up home_project_ledger
-# INFO (MainThread) [custom_components.home_project_ledger] Registered Home Project Ledger services
-# INFO (MainThread) [custom_components.home_project_ledger] Registered Home Project Ledger panel at /home-project-ledger
-```
+### 1. Check Sidebar
+Look for "Project Ledger" (or "Projektredovisning" in Swedish) in your sidebar with a notebook icon (mdi:notebook-edit).
 
 ### 2. Verify Services
-
-Go to Developer Tools → Services and verify these services exist:
+Go to Developer Tools → Services and check for:
 - `home_project_ledger.create_project`
-- `home_project_ledger.close_project`
 - `home_project_ledger.add_receipt`
 - `home_project_ledger.update_receipt`
 - `home_project_ledger.delete_receipt`
+- `home_project_ledger.close_project`
+- `home_project_ledger.reopen_project`
+- `home_project_ledger.update_project`
+- `home_project_ledger.delete_project`
 
-### 3. Check Sidebar Panel
-
-- Look for "Home Project Ledger" in the sidebar (notebook icon)
-- Click it to open the panel
-- Should see empty project list with "New Project" button
-
-### 4. Verify Sensor Creation
-
+### 3. Check Sensors
 Go to Developer Tools → States and look for:
 - `sensor.home_project_ledger_total_house_spend`
 
-## Testing Workflow
-
-### Test 1: Create a Project
-
-1. **Via Service**
-   ```yaml
-   service: home_project_ledger.create_project
-   data:
-     name: "Test Kitchen Renovation"
-     area_id: "kitchen"  # Use an existing area or omit
-   ```
-
-2. **Via Panel**
-   - Click "Home Project Ledger" in sidebar
-   - Click "+ New Project"
-   - Enter project name
-   - Select area (optional)
-   - Click "Create Project"
-
-3. **Verify**
-   - Project appears in list
-   - New sensor created: `sensor.home_project_ledger_project_[id]_spend`
-   - Sensor shows 0 (no receipts yet)
-
-### Test 2: Add a Receipt
-
-1. **Via Service**
-   ```yaml
-   service: home_project_ledger.add_receipt
-   data:
-     project_id: "your-project-id"  # Get from sensor attributes
-     merchant: "IKEA"
-     date: "2024-01-30"
-     total: 1299.50
-     currency: "SEK"
-     category_summary: "Kitchen cabinets"
-   ```
-
-2. **Via Panel**
-   - Click on your project
-   - Click "+ Add Receipt"
-   - Fill in details
-   - Optionally upload an image
-   - Click "Add Receipt"
-
-3. **Verify**
-   - Receipt appears in project
-   - Project sensor updates to show total
-   - Total house spend sensor increases
-   - Image accessible at `/local/home_project_ledger/receipts/[filename]`
-
-### Test 3: Upload Receipt Image
-
-1. **Prepare Test Image**
-   ```bash
-   # Create a small test image
-   convert -size 200x200 xc:white -pointsize 20 -draw "text 50,100 'Test Receipt'" test_receipt.jpg
-   
-   # Convert to base64
-   base64 test_receipt.jpg > test_receipt_base64.txt
-   ```
-
-2. **Add Receipt with Image**
-   ```yaml
-   service: home_project_ledger.add_receipt
-   data:
-     project_id: "your-project-id"
-     merchant: "Test Store"
-     date: "2024-01-30"
-     total: 99.99
-     currency: "SEK"
-     image_data: "[paste base64 content]"
-     image_filename: "test_receipt.jpg"
-   ```
-
-3. **Verify**
-   - Image saved in `/config/www/home_project_ledger/receipts/`
-   - Image displays in panel
-   - Image accessible via browser at URL shown in panel
-
-### Test 4: Update a Receipt
-
-```yaml
-service: home_project_ledger.update_receipt
-data:
-  receipt_id: "your-receipt-id"
-  total: 1350.00
-  merchant: "IKEA Store Updated"
-```
-
-Verify:
-- Receipt details updated
-- Sensor totals recalculated
-
-### Test 5: Close a Project
-
-```yaml
-service: home_project_ledger.close_project
-data:
-  project_id: "your-project-id"
-```
-
-Verify:
-- Project status changes to "closed"
-- Project moves to "Closed Projects" section in panel
-- Sensor still reports total correctly
-
-### Test 6: Delete a Receipt
-
-```yaml
-service: home_project_ledger.delete_receipt
-data:
-  receipt_id: "your-receipt-id"
-```
-
-Verify:
-- Receipt removed from project
-- Image file deleted from disk
-- Sensor totals updated
-
-### Test 7: Persistence
-
-1. Add several projects and receipts
-2. Restart Home Assistant: `ha core restart`
-3. Verify all data persists:
-   - Projects still listed
-   - Receipts still present
-   - Images still accessible
-   - Sensors show correct totals
-
-### Test 8: Multiple Areas
-
-1. Create projects in different areas
-2. Add receipts to each project
-3. Verify:
-   - Area sensors created for each area
-   - Area totals correct
-   - Panel shows correct area names
+### 4. Check Button Entities
+Look for:
+- `button.home_project_ledger_add_receipt`
+- `button.home_project_ledger_open_project_ledger`
 
 ## Troubleshooting
 
-### Panel Not Showing
-
-**Problem**: Sidebar entry doesn't appear
-
-**Solutions**:
+### Panel Not Appearing
 1. Clear browser cache
-2. Check that `/config/www/home_project_ledger/panel.html` exists
-3. Restart Home Assistant
-4. Check logs for panel registration errors
+2. Hard refresh the page (Ctrl+Shift+R)
+3. Check logs for errors: Settings → System → Logs
 
-### Services Not Working
+### Integration Not Found
+1. Ensure files are in correct location: `config/custom_components/home_project_ledger/`
+2. Check that `manifest.json` exists
+3. Restart Home Assistant completely
 
-**Problem**: Services fail or don't appear
-
-**Solutions**:
-1. Verify `services.yaml` exists
-2. Check logs: `grep "home_project_ledger" /config/home-assistant.log`
-3. Ensure integration loaded successfully
-4. Restart Home Assistant
+### Services Not Available
+1. Check that integration is fully loaded
+2. Look for errors in logs
+3. Try removing and re-adding the integration
 
 ### Images Not Displaying
+1. Check that `www/home_project_ledger/receipts/` directory exists
+2. Verify file permissions
+3. For cloud storage, check OAuth token validity
 
-**Problem**: Receipt images don't show in panel
+## Updating
 
-**Solutions**:
-1. Check `/config/www/home_project_ledger/receipts/` directory exists
-2. Verify image files are present
-3. Check file permissions
-4. Try accessing image directly: `http://your-ha/local/home_project_ledger/receipts/filename.jpg`
-5. Clear browser cache
+### Via HACS
+1. Open HACS → Integrations
+2. Find "Home Project Ledger"
+3. Click "Update" if available
+4. Restart Home Assistant
 
-### Sensors Not Updating
+### Manual
+1. Download new release
+2. Replace `custom_components/home_project_ledger/` folder
+3. Restart Home Assistant
 
-**Problem**: Totals don't update after adding receipts
+## Uninstalling
 
-**Solutions**:
-1. Check coordinator refresh in logs
-2. Verify storage operations complete
-3. Force update: Developer Tools → States → Click on sensor → Refresh
-4. Check for errors in logs
-
-### Storage Issues
-
-**Problem**: Data not persisting or errors on startup
-
-**Solutions**:
-1. Check `.storage/` directory permissions
-2. Verify no corruption: Check `.storage/home_project_ledger.*.json` files
-3. Backup and clear storage files if corrupted
-4. Restart integration
-
-## Performance Testing
-
-### Load Testing
-
-1. Create 10+ projects
-2. Add 50+ receipts
-3. Verify:
-   - UI remains responsive
-   - Sensor updates complete quickly
-   - Panel loads without issues
-
-### Image Storage
-
-1. Add receipts with various image sizes
-2. Check disk usage: `du -sh /config/www/home_project_ledger/`
-3. Verify 10MB size limit enforced
-4. Test image upload rejection for oversized files
-
-## Security Verification
-
-### File Path Security
-
-Test filename sanitization:
-```yaml
-service: home_project_ledger.add_receipt
-data:
-  project_id: "test-id"
-  merchant: "Test"
-  date: "2024-01-30"
-  total: 10
-  currency: "SEK"
-  image_data: "..."
-  image_filename: "../../../etc/passwd"  # Should be sanitized
-```
-
-Verify:
-- Filename sanitized to safe characters
-- Image saved in correct directory
-- No path traversal possible
-
-### Size Limits
-
-Test image size limit:
-```bash
-# Create large image
-convert -size 5000x5000 xc:white large.jpg
-
-# Try to upload (should fail)
-# Expected error: "Image size exceeds maximum allowed size (10MB)"
-```
-
-## Development Testing
-
-### Enable Debug Logging
-
-```yaml
-# configuration.yaml
-logger:
-  default: info
-  logs:
-    custom_components.home_project_ledger: debug
-```
-
-Restart and check logs for detailed debug output.
-
-### Test Data Reset
-
-To start fresh:
-```bash
-# Stop Home Assistant
-ha core stop
-
-# Remove storage
-rm /config/.storage/home_project_ledger.*
-
-# Remove images
-rm -rf /config/www/home_project_ledger/
-
-# Start Home Assistant
-ha core start
-```
-
-## Success Criteria
-
-✅ All tests pass  
-✅ No errors in logs  
-✅ Data persists across restarts  
-✅ UI is responsive  
-✅ Images upload and display correctly  
-✅ Sensors update in real-time  
-✅ Services work as expected  
-✅ Security measures effective  
-
-## Support
-
-If you encounter issues:
-1. Check [DEVELOPER.md](DEVELOPER.md) for architecture details
-2. Review [EXAMPLES.md](EXAMPLES.md) for usage examples
-3. Check logs for error messages
-4. Open an issue: https://github.com/FredrikElliot/home-project-ledger/issues
+1. Remove the integration from Settings → Devices & Services
+2. Delete `custom_components/home_project_ledger/` folder
+3. Optionally delete data:
+   - `.storage/home_project_ledger.*.json`
+   - `www/home_project_ledger/`
+4. Restart Home Assistant

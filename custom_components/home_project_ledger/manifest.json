@@ -6,8 +6,8 @@
   "dependencies": ["application_credentials"],
   "documentation": "https://github.com/FredrikElliot/home-project-ledger",
   "integration_type": "service",
-  "iot_class": "cloud_polling",
+  "iot_class": "local_polling",
   "issue_tracker": "https://github.com/FredrikElliot/home-project-ledger/issues",
   "requirements": ["aiohttp>=3.8.0"],
-  "version": "0.1.0"
+  "version": "1.0.0"
 }
