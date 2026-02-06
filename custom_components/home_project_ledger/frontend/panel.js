@@ -627,7 +627,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
           background-color: var(--primary-background-color, #fafafa);
           min-height: 100%;
           box-sizing: border-box;
-          padding-bottom: 72px; /* Space for bottom nav on mobile */
+          padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); /* Space for bottom nav on mobile + safe area */
         }
         @media (min-width: 768px) {
           :host { padding-bottom: 16px; }
@@ -647,11 +647,11 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .container { max-width: 1200px; margin: 0 auto; }
         
         /* Main Navigation Tabs */
-        .main-nav { display: flex; background-color: var(--card-background-color, #fff); border-top: 1px solid var(--divider-color, #e0e0e0); position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; box-shadow: 0 -2px 8px rgba(0,0,0,0.1); }
+        .main-nav { display: flex; background-color: var(--card-background-color, #fff); border-top: 1px solid var(--divider-color, #e0e0e0); position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; box-shadow: 0 -2px 8px rgba(0,0,0,0.1); padding: 0 max(12px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-right)); }
         @media (min-width: 768px) {
-          .main-nav { position: static; border-top: none; border-bottom: 1px solid var(--divider-color, #e0e0e0); box-shadow: none; margin-bottom: 16px; background-color: transparent; justify-content: center; gap: 8px; }
+          .main-nav { position: static; border-top: none; border-bottom: 1px solid var(--divider-color, #e0e0e0); box-shadow: none; margin-bottom: 16px; background-color: transparent; justify-content: center; gap: 8px; padding: 0; }
         }
-        .main-nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 4px; border: none; background: none; color: var(--secondary-text-color, #757575); cursor: pointer; font-size: 11px; font-weight: 500; gap: 4px; transition: color 0.2s; }
+        .main-nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px 2px 6px 2px; border: none; background: none; color: var(--secondary-text-color, #757575); cursor: pointer; font-size: 10px; font-weight: 500; gap: 2px; transition: color 0.2s; min-width: 0; }
         @media (min-width: 768px) {
           .main-nav-item { flex: none; flex-direction: row; padding: 12px 24px; font-size: 14px; border-radius: 8px 8px 0 0; gap: 8px; }
         }
@@ -660,16 +660,16 @@ class HomeProjectLedgerPanel extends HTMLElement {
         @media (min-width: 768px) {
           .main-nav-item.active { background-color: var(--card-background-color, #fff); box-shadow: 0 -2px 4px rgba(0,0,0,0.05); }
         }
-        .main-nav-item svg { width: 24px; height: 24px; }
+        .main-nav-item svg { width: 24px; height: 24px; flex-shrink: 0; }
         @media (min-width: 768px) {
           .main-nav-item svg { width: 20px; height: 20px; }
         }
-        .main-nav-item .nav-label { white-space: nowrap; }
-        .main-nav-item .nav-badge { background-color: var(--secondary-background-color, #f5f5f5); padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 4px; }
-        .main-nav-item.active .nav-badge { background-color: var(--primary-color, #03a9f4); color: white; }
+        .main-nav-item .nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+        .main-nav-item .nav-badge { display: none; }
         @media (min-width: 768px) {
-          .main-nav-item .nav-badge { font-size: 11px; }
+          .main-nav-item .nav-badge { display: inline; background-color: var(--secondary-background-color, #f5f5f5); padding: 2px 6px; border-radius: 10px; font-size: 11px; margin-left: 4px; }
         }
+        .main-nav-item.active .nav-badge { background-color: var(--primary-color, #03a9f4); color: white; }
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
         .page-header h1 { font-size: 28px; font-weight: 400; margin: 0; color: var(--primary-text-color, #212121); }
         .add-project-btn { display: flex; align-items: center; gap: 8px; padding: 10px 20px; border: none; background-color: var(--primary-color, #03a9f4); color: white; border-radius: 24px; font-size: 14px; font-weight: 500; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
