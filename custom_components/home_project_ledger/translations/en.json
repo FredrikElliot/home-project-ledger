@@ -40,7 +40,12 @@
     }
   },
   "application_credentials": {
-    "description": "Enter OAuth credentials for cloud storage providers. You'll need to create an application in the respective developer console:\n\n- **Google Drive**: [Google Cloud Console](https://console.cloud.google.com/)\n- **Dropbox**: [Dropbox App Console](https://www.dropbox.com/developers/apps)\n- **OneDrive**: [Azure Portal](https://portal.azure.com/)"
+    "description": "Enter OAuth credentials for cloud storage providers. You'll need to create an application in the respective developer console:\n\n- **Google Drive**: [Google Cloud Console]({google_cloud_console})\n- **Dropbox**: [Dropbox App Console]({dropbox_app_console})\n- **OneDrive**: [Azure Portal]({azure_portal})",
+    "description_placeholders": {
+      "google_cloud_console": "https://console.cloud.google.com/",
+      "dropbox_app_console": "https://www.dropbox.com/developers/apps",
+      "azure_portal": "https://portal.azure.com/"
+    }
   },
   "services": {
     "create_project": {
