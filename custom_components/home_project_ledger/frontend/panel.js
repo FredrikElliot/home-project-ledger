@@ -290,7 +290,7 @@ const TRANSLATIONS = {
     
     // Filters
     all: "Alla",
-    open: "Öppna",
+    open: "Öppen",
     closed: "Stängda",
     
     // Search
@@ -3597,7 +3597,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
     });
     
     // Listen for receipt total changes to update split remaining
-    const receiptTotalInput = this._container.querySelector("#receipt-total");
+    const receiptTotalInput = this._container.querySelector("#receipt-amount");
     if (receiptTotalInput) {
       receiptTotalInput.addEventListener("input", () => {
         this._updateSplitRemainingIndicator();
@@ -3735,7 +3735,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
     const splitType = this._state.categorySplitType;
     const splitValues = this._state.categorySplitValues || {};
     const selectedCategories = this._state.selectedCategories || [];
-    const totalInput = this._container.querySelector("#receipt-total");
+    const totalInput = this._container.querySelector("#receipt-amount");
     const receiptTotal = totalInput ? parseFloat(totalInput.value) || 0 : 0;
     
     const isPercent = splitType === 'percentage';
@@ -3771,6 +3771,19 @@ class HomeProjectLedgerPanel extends HTMLElement {
     remainingText.className = 'remaining' + (isOver ? ' over' : '');
   }
 
+  _preserveReceiptFormValues() {
+    if (this._state.modal?.type === 'receipt' && this._state.modal.data) {
+      const merchantInput = this._container.querySelector("#receipt-merchant");
+      const amountInput = this._container.querySelector("#receipt-amount");
+      const dateInput = this._container.querySelector("#receipt-date");
+      const projectSelect = this._container.querySelector("#receipt-project");
+      if (merchantInput) this._state.modal.data.merchant = merchantInput.value;
+      if (amountInput) this._state.modal.data.total = amountInput.value ? parseFloat(amountInput.value) : null;
+      if (dateInput) this._state.modal.data.date = dateInput.value;
+      if (projectSelect) this._state.modal.data.selected_project_id = projectSelect.value || null;
+    }
+  }
+
   _setupCategoryAutocomplete(input, dropdown, allOptions) {
     let highlightedIndex = -1;
     const checkIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"/></svg>';
@@ -3784,6 +3797,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
       // Don't add duplicates
       if (!this._state.selectedCategories.includes(category)) {
         this._state.selectedCategories.push(category);
+        this._preserveReceiptFormValues();
         this._render();
       }
       input.value = '';
@@ -4246,6 +4260,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
             this._state.categorySplitType = 'equal';
             this._state.categorySplitValues = {};
           }
+          this._preserveReceiptFormValues();
           this._render();
         }
         break;
@@ -4257,7 +4272,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         // Convert values when switching between percentage and absolute
         if (newType !== 'equal' && oldType !== 'equal' && newType !== oldType) {
           // Get the receipt total from the form
-          const totalInput = this._container.querySelector("#receipt-total");
+          const totalInput = this._container.querySelector("#receipt-amount");
           const receiptTotal = totalInput ? parseFloat(totalInput.value) || 0 : 0;
           
           if (receiptTotal > 0 && Object.keys(currentValues).length > 0) {
@@ -4283,6 +4298,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         if (newType === 'equal') {
           this._state.categorySplitValues = {};
         }
+        this._preserveReceiptFormValues();
         this._render();
         break;
       case "add-category-budget":
