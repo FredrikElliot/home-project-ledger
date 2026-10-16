@@ -1,4 +1,4 @@
-name: Validate with hassfest
+name: Hassfest Validation
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
 
 jobs:
   validate:
-    runs-on: "ubuntu-latest"
+    runs-on: ubuntu-latest
     steps:
-      - uses: "actions/checkout@v3"
+      - uses: actions/checkout@v3
       - uses: home-assistant/actions/hassfest@master
