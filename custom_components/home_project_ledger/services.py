@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import copy
 import logging
 import os
 import re
@@ -81,8 +82,10 @@ SERVICE_DELETE_PROJECT_SCHEMA = vol.Schema(
 
 SERVICE_ADD_RECEIPT_SCHEMA = vol.Schema(
     {
-        vol.Required("project_id"): cv.string,
-        vol.Required("merchant"): cv.string,
+        vol.Optional("project_id"): cv.string,
+        vol.Optional("merchant", default=""): cv.string,
+        vol.Optional("name"): cv.string,
+        vol.Optional("area_id"): cv.string,
         vol.Required("date"): cv.string,
         vol.Required("total"): vol.Coerce(float),
         vol.Optional("currency", default=DEFAULT_CURRENCY): cv.string,
@@ -90,6 +93,15 @@ SERVICE_ADD_RECEIPT_SCHEMA = vol.Schema(
         vol.Optional("categories"): vol.All(cv.ensure_list, [cv.string]),  # Multiple categories
         vol.Optional("category_split"): vol.Schema({cv.string: vol.Coerce(float)}),  # Category -> amount/percentage
         vol.Optional("category_split_type"): vol.In(["absolute", "percentage"]),  # Split type
+        vol.Optional("items"): vol.All(
+            cv.ensure_list,
+            [vol.Schema({
+                vol.Required("name"): cv.string,
+                vol.Required("price"): vol.Coerce(float),
+                vol.Required("category"): cv.string,
+                vol.Required("area_id"): cv.string,
+            })],
+        ),
         vol.Optional("image_data"): cv.string,  # Base64 encoded image (single, legacy)
         vol.Optional("image_filename"): cv.string,
         vol.Optional("images"): vol.All(  # Multiple images array
@@ -113,6 +125,20 @@ SERVICE_UPDATE_RECEIPT_SCHEMA = vol.Schema(
         vol.Optional("categories"): vol.Any(vol.All(cv.ensure_list, [cv.string]), None),  # Multiple categories
         vol.Optional("category_split"): vol.Any(vol.Schema({cv.string: vol.Coerce(float)}), None),
         vol.Optional("category_split_type"): vol.Any(vol.In(["absolute", "percentage"]), None),
+        vol.Optional("name"): cv.string,
+        vol.Optional("area_id"): vol.Any(cv.string, None),
+        vol.Optional("items"): vol.Any(
+            vol.All(
+                cv.ensure_list,
+                [vol.Schema({
+                    vol.Required("name"): cv.string,
+                    vol.Required("price"): vol.Coerce(float),
+                    vol.Required("category"): cv.string,
+                    vol.Required("area_id"): cv.string,
+                })],
+            ),
+            None,
+        ),
         vol.Optional("images"): vol.All(  # Multiple images array (replaces existing)
             cv.ensure_list,
             [vol.Schema({
@@ -329,8 +355,10 @@ async def async_setup_services(
 
     async def handle_add_receipt(call: ServiceCall) -> None:
         """Handle add_receipt service call."""
-        project_id = call.data["project_id"]
-        merchant = call.data["merchant"]
+        project_id = call.data.get("project_id")
+        merchant = call.data.get("merchant", "")
+        name = call.data.get("name")
+        area_id = call.data.get("area_id")
         date = call.data["date"]
         total = call.data["total"]
         currency = call.data.get("currency", DEFAULT_CURRENCY)
@@ -338,6 +366,53 @@ async def async_setup_services(
         categories = call.data.get("categories")
         category_split = call.data.get("category_split")
         category_split_type = call.data.get("category_split_type")
+        items = call.data.get("items", [])
+
+        if project_id and not storage.get_project(project_id):
+            raise ServiceValidationError(f"Project not found: {project_id}")
+        if not project_id and (not name or not name.strip() or not area_id):
+            raise ServiceValidationError("Standalone items require a name and room")
+        if project_id and not merchant:
+            raise ServiceValidationError("Project receipts require a merchant")
+        if total < 0 or any(item["price"] < 0 for item in items):
+            raise ServiceValidationError("Receipt and item prices must not be negative")
+        if any(
+            not item["name"].strip()
+            or not item["category"].strip()
+            or not item["area_id"].strip()
+            for item in items
+        ):
+            raise ServiceValidationError("Items require a name, category, and room")
+        if sum(item["price"] for item in items) > total + 0.01:
+            raise ServiceValidationError("Item prices cannot exceed the receipt total")
+        if not project_id and not items:
+            category = (categories or ([category_summary] if category_summary else [""]))[0]
+            items = [{
+                "name": name.strip(),
+                "price": total,
+                "category": category,
+                "area_id": area_id,
+            }]
+        if not project_id and any(
+            not item["name"].strip()
+            or not item["category"].strip()
+            or not item["area_id"].strip()
+            for item in items
+        ):
+            raise ServiceValidationError("Standalone items require a category")
+        if not project_id and (
+            len(items) != 1 or abs(sum(item["price"] for item in items) - total) > 0.01
+        ):
+            raise ServiceValidationError("Standalone item price must match the procurement total")
+        if not project_id and (
+            items[0]["name"].strip() != name.strip()
+            or items[0]["area_id"] != area_id
+            or (
+                (categories or ([category_summary] if category_summary else []))
+                and items[0]["category"] not in (categories or [category_summary])
+            )
+        ):
+            raise ServiceValidationError("Standalone item details must match the receipt")
         
         # Legacy single image support
         image_data = call.data.get("image_data")
@@ -383,6 +458,9 @@ async def async_setup_services(
             categories=categories,
             category_split=category_split,
             category_split_type=category_split_type,
+            name=name,
+            area_id=area_id,
+            items=items,
         )
 
         await storage.async_add_receipt(receipt)
@@ -399,6 +477,7 @@ async def async_setup_services(
         receipt = storage.get_receipt(receipt_id)
         if not receipt:
             raise ServiceValidationError(f"Receipt not found: {receipt_id}")
+        receipt = copy.deepcopy(receipt)
 
         # Update fields if provided
         if "merchant" in call.data:
@@ -417,6 +496,45 @@ async def async_setup_services(
             receipt.category_split = call.data.get("category_split")
         if "category_split_type" in call.data:
             receipt.category_split_type = call.data.get("category_split_type")
+        if "name" in call.data:
+            receipt.name = call.data["name"]
+        if "area_id" in call.data:
+            receipt.area_id = call.data.get("area_id")
+        if "items" in call.data:
+            items = call.data.get("items") or []
+            if any(
+                item["price"] < 0
+                or not item["name"].strip()
+                or not item["category"].strip()
+                or not item["area_id"].strip()
+                for item in items
+            ) or sum(item["price"] for item in items) > receipt.total + 0.01:
+                raise ServiceValidationError("Items require a name, category, room, and valid price")
+            receipt.items = items
+        if not receipt.project_id and (not receipt.name or not receipt.name.strip() or not receipt.area_id):
+            raise ServiceValidationError("Standalone items require a name and room")
+        if not receipt.project_id and "items" not in call.data and len(receipt.items) == 1:
+            receipt.items[0]["name"] = receipt.name
+            receipt.items[0]["price"] = receipt.total
+            receipt.items[0]["area_id"] = receipt.area_id
+            updated_categories = receipt.categories or ([receipt.category_summary] if receipt.category_summary else [])
+            if updated_categories:
+                receipt.items[0]["category"] = updated_categories[0]
+        if not receipt.project_id and (
+            len(receipt.items) != 1
+            or abs(sum(item["price"] for item in receipt.items) - receipt.total) > 0.01
+        ):
+            raise ServiceValidationError("Standalone items must have one row matching the procurement total")
+        if not receipt.project_id and "items" in call.data and (
+            receipt.items[0]["name"].strip() != receipt.name.strip()
+            or receipt.items[0]["area_id"] != receipt.area_id
+            or (
+                (receipt.categories or ([receipt.category_summary] if receipt.category_summary else []))
+                and receipt.items[0]["category"] not in (receipt.categories or [receipt.category_summary])
+            )
+        ):
+            raise ServiceValidationError("Standalone item details must match the receipt")
+        receipt.updated_at = datetime.now(timezone.utc).isoformat()
 
         # Handle image removal
         remove_paths = call.data.get("remove_image_paths", [])

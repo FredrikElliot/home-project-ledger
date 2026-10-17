@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Set up Home Project Ledger",
-        "description": "Configure your home project ledger settings.",
+        "description": "Track home projects, receipts, and room-connected household items.",
         "data": {
           "currency": "Default currency (e.g., SEK, USD, EUR)"
         }

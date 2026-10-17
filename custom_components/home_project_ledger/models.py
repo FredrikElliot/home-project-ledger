@@ -69,10 +69,10 @@ class Project:
 
 @dataclass
 class Receipt:
-    """Represents a receipt for a project."""
+    """Represents a procurement receipt, optionally linked to a project."""
 
     receipt_id: str
-    project_id: str
+    project_id: Optional[str]
     image_path: Optional[str]  # Legacy single image (deprecated)
     image_paths: list[str]  # Multiple image paths
     merchant: str
@@ -85,11 +85,14 @@ class Receipt:
     category_split_type: Optional[str] = None  # "absolute" or "percentage", None means equal split
     created_at: str = ""
     updated_at: str = ""
+    name: Optional[str] = None
+    area_id: Optional[str] = None
+    items: list[dict] = field(default_factory=list)
 
     @classmethod
     def create(
         cls,
-        project_id: str,
+        project_id: Optional[str],
         merchant: str,
         date: str,
         total: float,
@@ -100,6 +103,9 @@ class Receipt:
         categories: Optional[list[str]] = None,
         category_split: Optional[dict[str, float]] = None,
         category_split_type: Optional[str] = None,
+        name: Optional[str] = None,
+        area_id: Optional[str] = None,
+        items: Optional[list[dict]] = None,
     ) -> "Receipt":
         """Create a new receipt."""
         now = datetime.now(timezone.utc).isoformat()
@@ -126,29 +132,44 @@ class Receipt:
             category_split_type=category_split_type,
             created_at=now,
             updated_at=now,
+            name=name,
+            area_id=area_id,
+            items=items or [],
         )
 
     def get_spend_per_category(self) -> dict[str, float]:
         """Get spend amount per category based on split settings."""
         cats = self.categories or ([self.category_summary] if self.category_summary else [])
-        if not cats:
-            return {}
+        remaining_total = self.total - sum(float(item.get("price", 0)) for item in self.items)
+        remaining_total = max(remaining_total, 0.0)
 
-        # If custom split is defined, use it
+        item_spend: dict[str, float] = {}
+        for item in self.items:
+            category = item.get("category")
+            if category:
+                item_spend[category] = item_spend.get(category, 0.0) + float(item.get("price", 0))
+
+        if not cats:
+            return item_spend
+
+        # If custom split is defined, use it for the non-itemized receipt amount.
         if self.category_split and self.category_split_type:
             if self.category_split_type == "absolute":
-                # Return absolute amounts directly
-                return {cat: self.category_split.get(cat, 0.0) for cat in cats}
-            elif self.category_split_type == "percentage":
-                # Convert percentages to absolute amounts
-                return {
-                    cat: self.total * (self.category_split.get(cat, 0.0) / 100.0)
+                result = {
+                    cat: self.category_split.get(cat, 0.0)
                     for cat in cats
                 }
-
-        # Default: split equally among categories
-        amount_per_category = self.total / len(cats)
-        return {cat: amount_per_category for cat in cats}
+            elif self.category_split_type == "percentage":
+                result = {
+                    cat: remaining_total * (self.category_split.get(cat, 0.0) / 100.0)
+                    for cat in cats
+                }
+        else:
+            amount_per_category = remaining_total / len(cats)
+            result = {cat: amount_per_category for cat in cats}
+        for category, amount in item_spend.items():
+            result[category] = result.get(category, 0.0) + amount
+        return result
 
     def to_dict(self) -> dict:
         """Convert receipt to dictionary."""
@@ -167,6 +188,9 @@ class Receipt:
             "category_split_type": self.category_split_type,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
+            "name": self.name,
+            "area_id": self.area_id,
+            "items": self.items,
         }
 
     @classmethod
@@ -184,7 +208,7 @@ class Receipt:
             categories = [category_summary]
         return cls(
             receipt_id=data["receipt_id"],
-            project_id=data["project_id"],
+            project_id=data.get("project_id"),
             image_path=image_path,
             image_paths=image_paths,
             merchant=data["merchant"],
@@ -197,4 +221,7 @@ class Receipt:
             category_split_type=data.get("category_split_type"),
             created_at=data["created_at"],
             updated_at=data["updated_at"],
+            name=data.get("name"),
+            area_id=data.get("area_id"),
+            items=data.get("items") or [],
         )

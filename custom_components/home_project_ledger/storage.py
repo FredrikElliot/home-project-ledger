@@ -123,11 +123,31 @@ class ProjectLedgerStorage:
         return [r for r in self._receipts.values() if r.project_id == project_id]
 
     def get_receipts_for_area(self, area_id: str) -> list[Receipt]:
-        """Get all receipts for projects in a specific area."""
-        # First find all projects in this area
+        """Get receipts connected to a specific area directly or through a project."""
         project_ids_in_area = {
             p.project_id for p in self._projects.values()
             if p.area_id == area_id
         }
-        # Return receipts belonging to those projects
-        return [r for r in self._receipts.values() if r.project_id in project_ids_in_area]
+        return [
+            receipt for receipt in self._receipts.values()
+            if receipt.area_id == area_id or receipt.project_id in project_ids_in_area
+        ]
+
+    def get_spend_for_area(self, area_id: str, currency: str) -> float:
+        """Return area spend, assigning itemized amounts to their selected rooms."""
+        project_areas = {
+            project.project_id: project.area_id for project in self._projects.values()
+        }
+        total = 0.0
+        for receipt in self._receipts.values():
+            if receipt.currency != currency:
+                continue
+            item_total = sum(float(item.get("price", 0)) for item in receipt.items)
+            if receipt.project_id and project_areas.get(receipt.project_id) == area_id:
+                total += max(receipt.total - item_total, 0) if receipt.items else receipt.total
+            elif not receipt.project_id and receipt.area_id == area_id and not receipt.items:
+                total += receipt.total
+            for item in receipt.items:
+                if item.get("area_id") == area_id:
+                    total += float(item.get("price", 0))
+        return total
