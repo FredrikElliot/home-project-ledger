@@ -5,6 +5,8 @@
  */
 
 const DOMAIN = "home_project_ledger";
+const ITEM_ICON = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M21,16V8L12,3L3,8V16L12,21L21,16M12,5.3L17.8,8.5L12,11.7L6.2,8.5L12,5.3M5,10.2L11,13.5V18.4L5,15.1V10.2M13,18.4V13.5L19,10.2V15.1L13,18.4Z"/></svg>';
+const CATEGORY_ICON = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12L14.25,12L12,7.39L9.75,12L4,12A8,8 0 0,1 12,4Z"/></svg>';
 
 // Color palette for charts (inspired by HA Energy dashboard)
 // Distinct colors - alternating between different hues to ensure variety
@@ -90,6 +92,7 @@ const TRANSLATIONS = {
     itemization: "Items in this receipt",
     addItemRow: "Add item",
     removeItem: "Remove item",
+    editItem: "Edit item",
     unitemized: "Not itemized",
     amount: "Amount",
     date: "Date",
@@ -266,7 +269,7 @@ const TRANSLATIONS = {
     dashboard: "Dashboard",
     projects: "Projekt",
     receipts: "Kvitton",
-    items: "Artiklar",
+    items: "Föremål",
     merchants: "Butiker",
     categories: "Kategorier",
     
@@ -282,7 +285,7 @@ const TRANSLATIONS = {
     // Actions
     addProject: "Lägg till projekt",
     addReceipt: "Lägg till kvitto",
-    addItem: "Lägg till artikel",
+    addItem: "Lägg till föremål",
     quickAddReceipt: "Snabblägg kvitto",
     editReceipt: "Redigera kvitto",
     editProject: "Redigera projekt",
@@ -308,7 +311,7 @@ const TRANSLATIONS = {
     // Search
     searchProjects: "Sök projekt...",
     searchReceipts: "Sök kvitton...",
-    searchItems: "Sök artiklar...",
+    searchItems: "Sök föremål...",
     searchOrTypeNew: "Sök eller skriv nytt...",
     
     // Form labels
@@ -317,11 +320,12 @@ const TRANSLATIONS = {
     areaOptional: "Område (valfritt)",
     noArea: "Inget område",
     merchant: "Butik",
-    itemName: "Artikelnamn",
+    itemName: "Föremålsnamn",
     room: "Rum",
-    itemization: "Artiklar på kvittot",
-    addItemRow: "Lägg till artikel",
-    removeItem: "Ta bort artikel",
+    itemization: "Föremål på kvittot",
+    addItemRow: "Lägg till föremål",
+    removeItem: "Ta bort föremål",
+    editItem: "Redigera föremål",
     unitemized: "Ej specificerat",
     amount: "Belopp",
     date: "Datum",
@@ -400,7 +404,7 @@ const TRANSLATIONS = {
     noProjectsDesc: "Klicka på \"Lägg till projekt\" ovan för att skapa ditt första projekt.",
     noProjectsMatch: "Inga projekt matchar din sökning.",
     noReceiptsYet: "Inga kvitton än",
-    noItemsYet: "Inga artiklar än",
+    noItemsYet: "Inga föremål än",
     noReceiptsDesc: "Lägg till kvitton i dina projekt för att se dem här.",
     noMerchantsYet: "Inga butiker än",
     noMerchantsDesc: "Butiker visas här när du lägger till kvitton.",
@@ -519,6 +523,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
       customDateRange: null, // { start: 'YYYY-MM-DD', end: 'YYYY-MM-DD' }
       expandedProjectId: null,
       expandedReceiptId: null, // For showing receipt detail inline
+      expandedItemKey: null,
       expandedMerchant: null, // For showing receipts under a merchant
       expandedCategory: null, // For showing receipts under a category
       detailPhotoIndex: 0, // For selecting which photo to show in receipt detail
@@ -777,6 +782,19 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .receipt-content { flex: 1; min-width: 0; }
         .receipt-merchant { font-size: 14px; font-weight: 500; color: var(--primary-text-color, #212121); }
         .receipt-date { font-size: 12px; color: var(--secondary-text-color, #757575); }
+        .article-toggle { display: flex; align-items: center; flex: 1; min-width: 0; padding: 0; border: none; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+        .article-toggle:focus-visible { outline: 2px solid var(--primary-color, #03a9f4); outline-offset: 4px; }
+        .article-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0; }
+        .article-details dt { font-size: 12px; color: var(--secondary-text-color, #757575); margin-bottom: 4px; }
+        .article-details dd { margin: 0; font-size: 14px; color: var(--primary-text-color, #212121); overflow-wrap: anywhere; }
+        .article-filters { display: grid; grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); gap: 16px; align-items: end; padding-bottom: 16px; }
+        .article-filters .search-container, .article-filters .form-group { margin-bottom: 0; min-width: 0; }
+        .article-filters .search-input { height: 44px; }
+        @media (max-width: 699px) {
+          .article-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+          .article-filters .search-container { grid-column: 1 / -1; }
+          .article-details { grid-template-columns: minmax(0, 1fr); }
+        }
         .receipt-amount { font-size: 14px; font-weight: 500; color: var(--primary-text-color, #212121); margin-left: 12px; }
         .empty-receipts { text-align: center; padding: 24px; color: var(--secondary-text-color, #757575); font-size: 14px; }
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
@@ -791,7 +809,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .form-group { margin-bottom: 16px; }
         .form-group label { display: block; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; color: var(--secondary-text-color, #757575); margin-bottom: 6px; }
         .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: 8px; font-size: 14px; background-color: var(--card-background-color, #fff); color: var(--primary-text-color, #212121); box-sizing: border-box; }
-        .receipt-modal .form-group input, .receipt-modal .form-group select { height: 44px; min-height: 44px; }
+        home_project_ledger-panel .form-group input, home_project_ledger-panel select { height: 44px; min-height: 44px; box-sizing: border-box; }
         .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary-color, #03a9f4); }
         .modal-actions { display: flex; gap: 12px; padding: 16px 20px; border-top: 1px solid var(--divider-color, #e0e0e0); }
         .btn { flex: 1; padding: 12px 16px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
@@ -1257,8 +1275,9 @@ class HomeProjectLedgerPanel extends HTMLElement {
     }));
     const allReceipts = [...projectReceipts, ...standaloneReceipts];
     this._state.receipts = allReceipts;
-    this._state.items = allReceipts.flatMap(receipt => (receipt.items || []).map(item => ({
+    this._state.items = allReceipts.flatMap(receipt => (receipt.items || []).map((item, index) => ({
       ...item,
+      listKey: receipt.receipt_id + ':' + index,
       receipt_id: receipt.receipt_id,
       project_id: receipt.project_id,
       project_name: receipt.project_name,
@@ -1330,8 +1349,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
     const projectsIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3"/></svg>';
     const receiptsIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M3,22V3H21V22L18,20L15,22L12,20L9,22L6,20L3,22M17,9V7H7V9H17M15,13V11H7V13H15M13,17V15H7V17H13Z"/></svg>';
     const merchantsIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M18.36,9L18.96,12H5.04L5.64,9H18.36M20,4H4V6H20V4M20,7H4L3,12V14H4V20H14V14H18V20H20V14H21V12L20,7M6,18V14H12V18H6Z"/></svg>';
-    const categoriesIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12L14.25,12L12,7.39L9.75,12L4,12A8,8 0 0,1 12,4Z"/></svg>';
-    const itemsIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M21,16V8L12,3L3,8V16L12,21L21,16M12,5.3L17.8,8.5L12,11.7L6.2,8.5L12,5.3M5,10.2L11,13.5V18.4L5,15.1V10.2M13,18.4V13.5L19,10.2V15.1L13,18.4Z"/></svg>';
+    const categoriesIcon = CATEGORY_ICON;
+    const itemsIcon = ITEM_ICON;
     const settingsIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/></svg>';
 
     const timelineContainer = preserveTimeline
@@ -2763,26 +2782,64 @@ class HomeProjectLedgerPanel extends HTMLElement {
         (this._state.itemCategoryFilter === 'all' || item.category === this._state.itemCategoryFilter);
     }).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     const total = items.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
-    const list = items.length ? '<div class="project-list">' + items.map(item =>
-      '<div class="list-item"><div class="list-item-header">' +
-        '<div class="list-item-content"><div class="list-item-title">' + this._escapeHtml(item.name) + '</div>' +
-        '<div class="list-item-subtitle">' +
-          this._escapeHtml(item.category || '') + ' · ' +
-          this._escapeHtml(this._state.areas[item.area_id] || this._t('unknownArea')) + ' · ' +
-          this._escapeHtml(item.project_name || item.merchant || this._t('noProject')) +
-        '</div></div><div class="list-item-value">' + this._formatCurrency(item.price || 0) + '</div>' +
-      '</div></div>'
+    const list = items.length ? '<div class="receipt-list">' + items.map(item =>
+      this._renderRegisteredItem(item)
     ).join('') + '</div>' : '<div class="empty-state"><h3>' + this._t('noItemsYet') + '</h3></div>';
     const searchIcon = '<svg class="search-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5A4.5,4.5 0 0,0 9.5,14A4.5,4.5 0 0,0 14,9.5A4.5,4.5 0 0,0 9.5,5Z"/></svg>';
+    const addIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"/></svg>';
     return '<div class="page-header"><h1>' + this._t('items') + '</h1>' +
-      '<button class="btn btn-primary" data-action="quick-add-item">' + this._t('addItem') + '</button></div>' +
+      '<button class="add-project-btn" data-action="quick-add-item">' + addIcon + ' ' + this._t('addItem') + '</button></div>' +
       '<div class="statistics"><div class="stat-card"><div class="stat-label">' + this._t('totalAmount') +
       '</div><div class="stat-value">' + this._formatCurrency(total) + '</div></div></div>' +
-      '<div class="card"><div class="card-header"><div class="search-container">' + searchIcon +
+      '<div class="card"><div class="card-header article-filters"><div class="search-container">' + searchIcon +
       '<input type="text" class="search-input" placeholder="' + this._t('searchItems') + '" value="' +
       this._escapeHtml(this._state.searchQuery) + '"></div>' +
-      '<select id="items-room-filter">' + roomOptions + '</select>' +
-      '<select id="items-category-filter">' + categoryOptions + '</select></div>' + list + '</div>';
+      '<div class="form-group"><label for="items-room-filter">' + this._t('room') + '</label>' +
+      '<select id="items-room-filter">' + roomOptions + '</select></div>' +
+      '<div class="form-group"><label for="items-category-filter">' + this._t('categories') + '</label>' +
+      '<select id="items-category-filter">' + categoryOptions + '</select></div></div>' + list + '</div>';
+  }
+
+  _renderRegisteredItem(item) {
+    const itemKey = this._escapeHtml(item.listKey);
+    const isExpanded = this._state.expandedItemKey === item.listKey;
+    const isMenuOpen = this._state.openMenuId === 'item-' + item.listKey;
+    const menuIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z"/></svg>';
+    const editIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/></svg>';
+    const chevronIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="' + (isExpanded
+      ? 'M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z'
+      : 'M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z') + '"/></svg>';
+    const room = this._state.areas[item.area_id] || this._t('unknownArea');
+    const details = [
+      [this._t('room'), room],
+      [this._t('categories'), item.category || this._t('uncategorized')],
+      [this._t('date'), item.date || this._t('noDate')],
+      [this._t('merchant'), item.merchant || this._t('unknown')],
+      [this._t('project'), item.project_name || this._t('noProject')],
+    ];
+    let menuHtml = '';
+    if (isMenuOpen) {
+      const pos = this._state.menuPosition || { top: 0, right: 0 };
+      menuHtml = '<div class="menu-dropdown" style="top: ' + pos.top + 'px; right: ' + pos.right + 'px;">' +
+        '<button class="menu-item" data-action="edit-receipt" data-receipt-id="' + this._escapeHtml(item.receipt_id) +
+        '" data-project-id="' + this._escapeHtml(item.project_id || '') + '">' + editIcon +
+        this._t(item.project_id ? 'editReceipt' : 'editItem') + '</button></div>';
+    }
+    return '<div class="receipt-item-wrapper">' +
+      '<div class="receipt-item"><button type="button" class="article-toggle" data-action="toggle-item" data-item-key="' + itemKey +
+      '" aria-expanded="' + isExpanded + '" aria-controls="article-details-' + itemKey + '">' +
+        '<span class="receipt-chevron">' + chevronIcon + '</span>' +
+        '<span class="receipt-icon">' + ITEM_ICON + '</span>' +
+        '<span class="receipt-content"><span class="receipt-merchant" style="display:block;">' + this._escapeHtml(item.name) + '</span>' +
+        '<span class="receipt-date">' + this._escapeHtml([item.category, room, item.date].filter(Boolean).join(' · ')) + '</span></span>' +
+        '<span class="receipt-amount">' + this._formatCurrency(item.price || 0) + '</span></button>' +
+        '<div class="menu-container"><button type="button" class="menu-btn" data-menu-id="item-' + itemKey +
+        '" aria-label="' + this._t('editItem') + '" title="' + this._t('editItem') + '" aria-expanded="' + isMenuOpen + '">' +
+        menuIcon + '</button>' + menuHtml + '</div></div>' +
+        '<div id="article-details-' + itemKey + '"' + (isExpanded ? ' class="receipt-detail"' : ' hidden') + '>' +
+        (isExpanded ? '<dl class="article-details">' + details.map(([label, value]) =>
+          '<div><dt>' + this._escapeHtml(label) + '</dt><dd>' + this._escapeHtml(value) + '</dd></div>'
+        ).join('') + '</dl>' : '') + '</div></div>';
   }
 
   _renderMerchantsTab(merchants) {
@@ -2835,7 +2892,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
   }
 
   _renderCategoriesTab(categories) {
-    const tagIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M5.5,7A1.5,1.5 0 0,1 4,5.5A1.5,1.5 0 0,1 5.5,4A1.5,1.5 0 0,1 7,5.5A1.5,1.5 0 0,1 5.5,7M21.41,11.58L12.41,2.58C12.05,2.22 11.55,2 11,2H4C2.89,2 2,2.89 2,4V11C2,11.55 2.22,12.05 2.59,12.41L11.58,21.41C11.95,21.77 12.45,22 13,22C13.55,22 14.05,21.77 14.41,21.41L21.41,14.41C21.78,14.05 22,13.55 22,13C22,12.44 21.77,11.94 21.41,11.58Z"/></svg>';
+    const tagIcon = CATEGORY_ICON;
     const chevronIcon = '<svg class="list-item-chevron" viewBox="0 0 24 24"><path fill="currentColor" d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"/></svg>';
 
     const total = categories.reduce((sum, c) => sum + c.total, 0);
@@ -3203,7 +3260,9 @@ class HomeProjectLedgerPanel extends HTMLElement {
   _renderReceiptItem(receipt, projectId) {
     const isExpanded = this._state.expandedReceiptId === receipt.receipt_id;
     const isMenuOpen = this._state.openMenuId === "receipt-" + receipt.receipt_id;
-    const receiptIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M3,22V3H21V22L18,20L15,22L12,20L9,22L6,20L3,22M17,9V7H7V9H17M15,13V11H7V13H15Z"/></svg>';
+    const receiptIcon = (receipt.project_id || projectId)
+      ? '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M3,22V3H21V22L18,20L15,22L12,20L9,22L6,20L3,22M17,9V7H7V9H17M15,13V11H7V13H15Z"/></svg>'
+      : ITEM_ICON;
     const menuIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z"/></svg>';
     const editIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/></svg>';
     const deleteIcon = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/></svg>';
@@ -4134,8 +4193,11 @@ class HomeProjectLedgerPanel extends HTMLElement {
 
     const showDropdown = (filteredOptions, query) => {
       const selectedCats = this._state.selectedCategories || [];
+      const exactMatch = allOptions.some(opt => opt.toLowerCase() === query.toLowerCase());
+      const alreadySelected = selectedCats.some(cat => cat.toLowerCase() === query.toLowerCase());
+      const showCreateOption = !!query && !exactMatch && !alreadySelected;
       // Filter out already selected categories
-      const availableOptions = filteredOptions.filter(opt => !selectedCats.includes(opt));
+      const availableOptions = filteredOptions.filter(opt => !selectedCats.includes(opt)).slice(0, showCreateOption ? 14 : 15);
       
       let html = '';
       
@@ -4146,9 +4208,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
       });
       
       // Show "Create new" option if query doesn't exactly match any option
-      const exactMatch = allOptions.some(opt => opt.toLowerCase() === query.toLowerCase());
-      const alreadySelected = selectedCats.some(cat => cat.toLowerCase() === query.toLowerCase());
-      if (query && !exactMatch && !alreadySelected) {
+      if (showCreateOption) {
         const createIdx = availableOptions.length;
         const isHighlighted = createIdx === highlightedIndex ? ' highlighted' : '';
         html += '<div class="autocomplete-item create-new' + isHighlighted + '" data-value="' + this._escapeHtml(query) + '" data-create="true">' + plusIcon + '<span>' + this._t('createNew', { name: this._escapeHtml(query) }) + '</span></div>';
@@ -4172,10 +4232,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
 
     const filterOptions = () => {
       const query = input.value.trim();
-      if (!query) {
-        dropdown.style.display = 'none';
-        return;
-      }
       const queryLower = query.toLowerCase();
       const filtered = allOptions.filter(opt => opt.toLowerCase().includes(queryLower));
       highlightedIndex = -1;
@@ -4184,6 +4240,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
 
     input.addEventListener('input', filterOptions);
     input.addEventListener('focus', filterOptions);
+    input.addEventListener('click', filterOptions);
     input.addEventListener('blur', () => {
       setTimeout(() => { dropdown.style.display = 'none'; }, 150);
     });
@@ -4503,6 +4560,11 @@ class HomeProjectLedgerPanel extends HTMLElement {
           this._state.expandedCategory = categoryName;
         }
         this._state.expandedReceiptId = null;
+        this._render();
+        break;
+      case "toggle-item":
+        this._state.expandedItemKey = this._state.expandedItemKey === dataset.itemKey ? null : dataset.itemKey;
+        this._state.openMenuId = null;
         this._render();
         break;
       case "toggle-receipt":
