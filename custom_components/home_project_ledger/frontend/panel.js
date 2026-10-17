@@ -1543,6 +1543,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
     const map = new Map();
     receipts.forEach(r => {
       const cats = r.category_summary ? r.category_summary.split(',').map(c => c.trim()).filter(c => c) : [this._t('uncategorized')];
+      const itemTotal = (r.items || []).reduce((sum, item) => sum + (Number(item.price) || 0), 0);
+      const remainingTotal = Math.max((r.total || 0) - itemTotal, 0);
       cats.forEach(cat => {
         let amount;
         if (cats.length > 1) {
@@ -1550,17 +1552,21 @@ class HomeProjectLedgerPanel extends HTMLElement {
           if (r.category_split && r.category_split_type === 'absolute') {
             amount = r.category_split[cat] || 0;
           } else if (r.category_split && r.category_split_type === 'percentage') {
-            amount = (r.total || 0) * ((r.category_split[cat] || 0) / 100);
+            amount = remainingTotal * ((r.category_split[cat] || 0) / 100);
           } else {
             // Default: equal split
-            amount = (r.total || 0) / cats.length;
+            amount = remainingTotal / cats.length;
           }
         } else {
-          // Single category: full amount
-          amount = r.total || 0;
+          // Single category: non-itemized amount
+          amount = remainingTotal;
         }
         const existing = map.get(cat) || 0;
         map.set(cat, existing + amount);
+      });
+      (r.items || []).forEach(item => {
+        if (!item.category) return;
+        map.set(item.category, (map.get(item.category) || 0) + (Number(item.price) || 0));
       });
     });
     return Array.from(map.entries())
@@ -3748,15 +3754,15 @@ class HomeProjectLedgerPanel extends HTMLElement {
         this._state.activeFilter = e.currentTarget.dataset.filter;
         this._render();
       });
+    });
 
-      this._container.querySelector("#items-room-filter")?.addEventListener("change", (e) => {
-        this._state.itemRoomFilter = e.target.value;
-        this._render();
-      });
-      this._container.querySelector("#items-category-filter")?.addEventListener("change", (e) => {
-        this._state.itemCategoryFilter = e.target.value;
-        this._render();
-      });
+    this._container.querySelector("#items-room-filter")?.addEventListener("change", (e) => {
+      this._state.itemRoomFilter = e.target.value;
+      this._render();
+    });
+    this._container.querySelector("#items-category-filter")?.addEventListener("change", (e) => {
+      this._state.itemCategoryFilter = e.target.value;
+      this._render();
     });
 
     this._container.querySelectorAll(".project-item").forEach((item) => {

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import copy
 import logging
 import os
 import re
@@ -403,6 +404,15 @@ async def async_setup_services(
             len(items) != 1 or abs(sum(item["price"] for item in items) - total) > 0.01
         ):
             raise ServiceValidationError("Standalone item price must match the procurement total")
+        if not project_id and (
+            items[0]["name"].strip() != name.strip()
+            or items[0]["area_id"] != area_id
+            or (
+                (categories or ([category_summary] if category_summary else []))
+                and items[0]["category"] not in (categories or [category_summary])
+            )
+        ):
+            raise ServiceValidationError("Standalone item details must match the receipt")
         
         # Legacy single image support
         image_data = call.data.get("image_data")
@@ -467,6 +477,7 @@ async def async_setup_services(
         receipt = storage.get_receipt(receipt_id)
         if not receipt:
             raise ServiceValidationError(f"Receipt not found: {receipt_id}")
+        receipt = copy.deepcopy(receipt)
 
         # Update fields if provided
         if "merchant" in call.data:
@@ -514,6 +525,15 @@ async def async_setup_services(
             or abs(sum(item["price"] for item in receipt.items) - receipt.total) > 0.01
         ):
             raise ServiceValidationError("Standalone items must have one row matching the procurement total")
+        if not receipt.project_id and "items" in call.data and (
+            receipt.items[0]["name"].strip() != receipt.name.strip()
+            or receipt.items[0]["area_id"] != receipt.area_id
+            or (
+                (receipt.categories or ([receipt.category_summary] if receipt.category_summary else []))
+                and receipt.items[0]["category"] not in (receipt.categories or [receipt.category_summary])
+            )
+        ):
+            raise ServiceValidationError("Standalone item details must match the receipt")
         receipt.updated_at = datetime.now(timezone.utc).isoformat()
 
         # Handle image removal
