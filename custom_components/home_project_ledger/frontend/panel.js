@@ -781,6 +781,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .empty-receipts { text-align: center; padding: 24px; color: var(--secondary-text-color, #757575); font-size: 14px; }
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
         .modal { background-color: var(--card-background-color, #fff); border-radius: 12px; max-width: 400px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+        .modal.receipt-modal { max-width: 860px; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--divider-color, #e0e0e0); }
         .modal-header h3 { margin: 0; font-size: 18px; font-weight: 500; color: var(--primary-text-color, #212121); }
         .modal-close { width: 36px; height: 36px; border: none; background: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--secondary-text-color, #757575); }
@@ -790,6 +791,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .form-group { margin-bottom: 16px; }
         .form-group label { display: block; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; color: var(--secondary-text-color, #757575); margin-bottom: 6px; }
         .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: 8px; font-size: 14px; background-color: var(--card-background-color, #fff); color: var(--primary-text-color, #212121); box-sizing: border-box; }
+        .receipt-modal .form-group input, .receipt-modal .form-group select { height: 44px; min-height: 44px; }
         .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary-color, #03a9f4); }
         .modal-actions { display: flex; gap: 12px; padding: 16px 20px; border-top: 1px solid var(--divider-color, #e0e0e0); }
         .btn { flex: 1; padding: 12px 16px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
@@ -1035,6 +1037,19 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .add-category-budget-btn { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border: 1px dashed var(--divider-color, #e0e0e0); background: none; border-radius: 6px; font-size: 13px; color: var(--secondary-text-color, #757575); cursor: pointer; width: 100%; justify-content: center; }
         .add-category-budget-btn:hover { border-color: var(--primary-color, #03a9f4); color: var(--primary-color, #03a9f4); }
         .add-category-budget-btn svg { width: 16px; height: 16px; }
+        #receipt-items-list { display: grid; gap: 12px; }
+        #receipt-items-list:not(:empty) + .add-category-budget-btn { margin-top: 16px; }
+        .receipt-item-row.category-budget-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 16px 52px 16px 16px; border: 1px solid var(--divider-color, #e0e0e0); border-radius: 8px; }
+        .receipt-item-field { min-width: 0; }
+        .receipt-item-row input, .receipt-item-row select { min-width: 0; }
+        .receipt-item-row.category-budget-row input[type="number"] { padding: 12px; font-size: 14px; text-align: left; }
+        .receipt-item-row .remove-budget-btn { position: absolute; top: 8px; right: 8px; }
+        @media (min-width: 700px) {
+          .receipt-modal .modal-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 20px; }
+          .receipt-modal .modal-body > .form-group { margin-bottom: 0; min-width: 0; }
+          .receipt-modal .receipt-itemization, .receipt-modal .photo-section { grid-column: 1 / -1; }
+          .receipt-item-row.category-budget-row { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1.5fr); }
+        }
         
         /* Tab content areas */
         .tab-content { display: none; }
@@ -3584,7 +3599,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
       0
     );
     const itemRowsHtml = !isItemOnly
-      ? '<div class="form-group"><label>' + this._t('itemization') + '</label>' +
+      ? '<div class="form-group receipt-itemization"><label>' + this._t('itemization') + '</label>' +
         '<div id="receipt-items-list">' + itemRows.map((item, index) => {
           const itemAreas = '<option value="">' + this._t('noArea') + '</option>' +
             Object.entries(this._state.areas).map(([id, name]) =>
@@ -3592,11 +3607,15 @@ class HomeProjectLedgerPanel extends HTMLElement {
               (item.area_id === id ? ' selected' : '') + '>' + this._escapeHtml(name) + '</option>'
             ).join('');
           return '<div class="category-budget-row receipt-item-row" data-index="' + index + '">' +
-            '<input type="text" class="receipt-item-name" data-index="' + index + '" value="' + this._escapeHtml(item.name || '') + '" placeholder="' + this._t('itemName') + '">' +
-            '<input type="number" class="receipt-item-price" data-index="' + index + '" value="' + (item.price ?? '') + '" placeholder="0.00" min="0" step="0.01">' +
-            '<input type="text" class="receipt-item-category" data-index="' + index + '" value="' + this._escapeHtml(item.category || '') + '" placeholder="' + this._t('categoriesOptional') + '">' +
-            '<select class="receipt-item-area" data-index="' + index + '">' + itemAreas + '</select>' +
-            '<button type="button" class="remove-budget-btn" data-action="remove-receipt-item" data-index="' + index + '">' + removeIcon + '</button></div>';
+            '<div class="receipt-item-field"><label for="receipt-item-name-' + index + '">' + this._t('itemName') + '</label>' +
+            '<input type="text" id="receipt-item-name-' + index + '" class="receipt-item-name" data-index="' + index + '" value="' + this._escapeHtml(item.name || '') + '" placeholder="' + this._t('itemName') + '"></div>' +
+            '<div class="receipt-item-field"><label for="receipt-item-price-' + index + '">' + this._t('amount') + '</label>' +
+            '<input type="number" id="receipt-item-price-' + index + '" class="receipt-item-price" data-index="' + index + '" value="' + (item.price ?? '') + '" placeholder="0.00" min="0" step="0.01"></div>' +
+            '<div class="receipt-item-field"><label for="receipt-item-category-' + index + '">' + this._t('categoriesOptional') + '</label>' +
+            '<input type="text" id="receipt-item-category-' + index + '" class="receipt-item-category" data-index="' + index + '" value="' + this._escapeHtml(item.category || '') + '" placeholder="' + this._t('categoriesOptional') + '"></div>' +
+            '<div class="receipt-item-field"><label for="receipt-item-area-' + index + '">' + this._t('room') + '</label>' +
+            '<select id="receipt-item-area-' + index + '" class="receipt-item-area" data-index="' + index + '">' + itemAreas + '</select></div>' +
+            '<button type="button" class="remove-budget-btn" data-action="remove-receipt-item" data-index="' + index + '" aria-label="' + this._t('removeItem') + '" title="' + this._t('removeItem') + '">' + removeIcon + '</button></div>';
         }).join('') + '</div><button type="button" class="add-category-budget-btn" data-action="add-receipt-item">' +
         this._t('addItemRow') + '</button><div class="tag-hint" id="receipt-non-itemized">' +
         this._t('unitemized') + ': ' + this._formatCurrency(unitemizedAmount) + '</div></div>'
@@ -3637,7 +3656,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
     '</div>';
 
     return '<div class="modal-overlay" data-action="close-modal">' +
-      '<div class="modal" onclick="event.stopPropagation()">' +
+      '<div class="modal' + (isItemOnly ? '' : ' receipt-modal') + '" onclick="event.stopPropagation()">' +
         '<div class="modal-header">' +
           '<h3>' + title + '</h3>' +
           '<button class="modal-close" data-action="close-modal">' + closeIcon + '</button>' +
