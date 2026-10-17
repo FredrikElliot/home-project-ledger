@@ -119,15 +119,27 @@ add_receipt:
   fields:
     project_id:
       name: Project ID
-      description: ID of the project
-      required: true
+      description: ID of the project (omit for a standalone item)
+      required: false
       example: "abc123-def456-ghi789"
       selector:
         text:
+    name:
+      name: Item name
+      description: Required for standalone items
+      required: false
+      selector:
+        text:
+    area_id:
+      name: Room
+      description: Home Assistant area for a standalone item
+      required: false
+      selector:
+        area:
     merchant:
       name: Merchant
-      description: Name of the merchant
-      required: true
+      description: Name of the merchant (required for project receipts)
+      required: false
       example: "IKEA"
       selector:
         text:
@@ -187,6 +199,12 @@ add_receipt:
           options:
             - "absolute"
             - "percentage"
+    items:
+      name: Items
+      description: Itemized rows for a project receipt; each row includes a name, price, category, and room
+      required: false
+      selector:
+        object:
     image_data:
       name: Image data
       description: Base64 encoded image (optional)
@@ -274,6 +292,24 @@ update_receipt:
           options:
             - "absolute"
             - "percentage"
+    name:
+      name: Item name
+      description: Name for a standalone item
+      required: false
+      selector:
+        text:
+    area_id:
+      name: Room
+      description: Room for a standalone item
+      required: false
+      selector:
+        area:
+    items:
+      name: Items
+      description: Itemized rows for this receipt
+      required: false
+      selector:
+        object:
 
 delete_receipt:
   name: Delete receipt

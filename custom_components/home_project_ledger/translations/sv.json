@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Konfigurera Home Project Ledger",
-        "description": "Konfigurera dina inställningar för hemprojektredovisning och välj var kvittobilder ska lagras.",
+        "description": "Håll reda på hemprojekt, kvitton och hushållsartiklar kopplade till rum. Välj var kvittobilder ska lagras.",
         "data": {
           "currency": "Standardvaluta (t.ex. SEK, USD, EUR)",
           "storage_provider": "Bildlagring"

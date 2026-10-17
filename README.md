@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/github/license/FredrikElliot/home-project-ledger.svg)](LICENSE)
 [![GitHub Release](https://img.shields.io/github/v/release/FredrikElliot/home-project-ledger)](https://github.com/FredrikElliot/home-project-ledger/releases)
 
-A Home Assistant custom integration for tracking home renovation projects, receipts, budgets, and costs.
+A Home Assistant custom integration for tracking home projects, receipts, budgets, and household items by room.
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=FredrikElliot&repository=home-project-ledger&category=integration)
 
@@ -12,6 +12,7 @@ A Home Assistant custom integration for tracking home renovation projects, recei
 
 ✨ **Track Projects** - Create and manage home renovation projects with budgets  
 📸 **Receipt Management** - Upload receipt images and store detailed metadata  
+🧾 **Item Tracking** - Register standalone household items by room or itemize project receipts
 💰 **Budget Tracking** - Set project budgets (total or by category) with visual health indicators  
 🏠 **Area Integration** - Associate projects with Home Assistant Areas  
 📊 **Interactive Dashboard** - Visual charts and analytics for spending trends  
@@ -110,6 +111,10 @@ After installation, you'll find **Project Ledger** (or **Projektredovisning** in
    - Upload receipt images (optional)
 4. Click **Add Receipt**
 
+### Tracking Items
+
+Open the **Items** tab to add a standalone item with its name, purchase date, price, category, room, and receipt photos. Project receipts can also be itemized with named rows, each assigned a price, category, and room. Items can be searched and filtered by room or category.
+
 ### Budget Tracking
 
 Set budgets on your projects to see:
@@ -130,7 +135,7 @@ The integration provides the following services for automations:
 | `home_project_ledger.close_project` | Close a project |
 | `home_project_ledger.reopen_project` | Reopen a closed project |
 | `home_project_ledger.delete_project` | Delete a project and all receipts |
-| `home_project_ledger.add_receipt` | Add a receipt to a project |
+| `home_project_ledger.add_receipt` | Add a project receipt or standalone room-connected item |
 | `home_project_ledger.update_receipt` | Update receipt details |
 | `home_project_ledger.delete_receipt` | Delete a receipt |
 
