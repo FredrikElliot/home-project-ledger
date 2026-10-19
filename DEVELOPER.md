@@ -268,13 +268,4 @@ logger:
 
 ## Contributing
 
-1. Fork the repository
-2. Create feature branch
-3. Make changes with tests
-4. Submit pull request
-
-### Code Style
-- Follow Home Assistant's coding standards
-- Use type hints
-- Add docstrings to functions
-- Keep functions focused and small
+See [CONTRIBUTING.md](https://github.com/FredrikElliot/home-project-ledger/blob/main/CONTRIBUTING.md) for how to propose changes, the PR checklist and code style.
