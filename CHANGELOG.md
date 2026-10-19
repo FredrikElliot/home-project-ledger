@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Version reported by the integration now matches the release (`manifest.json` still said 1.0.0)
 
+### Documentation
+- Reorganized README, Quick Start and contributor docs; added issue templates
+- 
+
 ## [1.2.0] - 2026-10-17
 
 ### Added
