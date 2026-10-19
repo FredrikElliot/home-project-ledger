@@ -1,0 +1,73 @@
+name: Bug report
+description: Something isn't working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please search [existing issues](https://github.com/FredrikElliot/home-project-ledger/issues) first.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the Projects tab
+        2. Click ...
+        3. See error
+  - type: input
+    id: integration-version
+    attributes:
+      label: Home Project Ledger version
+      description: Shown in HACS / the Marketplace, or in Settings → Devices & Services.
+      placeholder: "1.2.1"
+    validations:
+      required: true
+  - type: input
+    id: ha-version
+    attributes:
+      label: Home Assistant version
+      description: Settings → About.
+      placeholder: "2026.10.2"
+    validations:
+      required: true
+  - type: dropdown
+    id: storage
+    attributes:
+      label: Receipt image storage
+      options:
+        - Local
+        - Google Drive
+  - type: dropdown
+    id: language
+    attributes:
+      label: Home Assistant language
+      options:
+        - English
+        - Swedish
+        - Other
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Enable debug logging, reproduce the problem, then paste the relevant lines from Settings → System → Logs:
+        ```yaml
+        logger:
+          default: warning
+          logs:
+            custom_components.home_project_ledger: debug
+        ```
+      render: text
+  - type: textarea
+    id: browser
+    attributes:
+      label: Browser console errors (for panel/UI problems)
+      description: Open the browser developer tools (F12) → Console and paste any red errors.
+      render: text
