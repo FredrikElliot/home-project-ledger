@@ -1,7 +1,7 @@
 # Home Project Ledger
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-[![License](https://img.shields.io/github/license/FredrikElliot/home-project-ledger.svg)](LICENSE)
+[![License](https://img.shields.io/github/license/FredrikElliot/home-project-ledger.svg)](https://github.com/FredrikElliot/home-project-ledger/blob/main/LICENSE)
 [![GitHub Release](https://img.shields.io/github/v/release/FredrikElliot/home-project-ledger)](https://github.com/FredrikElliot/home-project-ledger/releases)
 
 A Home Assistant custom integration for tracking home projects, receipts, budgets, and household items by room.
@@ -12,121 +12,56 @@ A Home Assistant custom integration for tracking home projects, receipts, budget
 
 ✨ **Track Projects** - Create and manage home renovation projects with budgets  
 📸 **Receipt Management** - Upload receipt images and store detailed metadata  
-🧾 **Item Tracking** - Register standalone household items by room or itemize project receipts
+🧾 **Item Tracking** - Register standalone household items by room or itemize project receipts  
 💰 **Budget Tracking** - Set project budgets (total or by category) with visual health indicators  
 🏠 **Area Integration** - Associate projects with Home Assistant Areas  
 📊 **Interactive Dashboard** - Visual charts and analytics for spending trends  
 📈 **Monetary Sensors** - Automatic sensors with long-term statistics support  
 🎨 **Custom Panel** - Dedicated sidebar page with responsive Material Design  
 🌍 **Translations** - Available in English and Swedish  
-☁️ **Cloud Storage** - Optional Google Drive integration for receipt images  
+☁️ **Cloud Storage** - Optional Google Drive integration for receipt images
 
 ## Screenshots
 
-<details>
-<summary>📊 Dashboard View</summary>
+Uncomment this section once the images are added to docs/images/ in the repository.
+Absolute URLs are used so the images also show inside HACS / the Marketplace.
 
-The dashboard provides an overview of your spending with:
-- Summary statistics (total spend, receipt count, averages)
-- Budget health indicators (on track, at risk, over budget)
-- Interactive spending timeline with smooth line charts
-- Category and merchant breakdowns with donut charts
-- Recent activity feed
-
-</details>
-
-<details>
-<summary>📁 Project Management</summary>
-
-- Create projects with names, areas, and budgets
-- Track project status (open/closed)
-- View detailed receipt lists per project
-- Budget progress bars with color-coded status
-
-</details>
-
-<details>
-<summary>🧾 Receipt Management</summary>
-
-- Add receipts with merchant, date, amount, and categories
-- Upload multiple receipt images
-- Split costs across multiple categories
-- Expandable receipt details with photo viewer
-
-</details>
+| Dashboard | Projects | Items |
+|---|---|---|
+| ![Dashboard](https://raw.githubusercontent.com/FredrikElliot/home-project-ledger/main/docs/images/dashboard-1.png) ![Dashboard 2](https://raw.githubusercontent.com/FredrikElliot/home-project-ledger/main/docs/images/dashboard-2.png)| ![Projects](https://raw.githubusercontent.com/FredrikElliot/home-project-ledger/main/docs/images/projects.png) | ![Items](https://raw.githubusercontent.com/FredrikElliot/home-project-ledger/main/docs/images/items.png) |
 
 ## Installation
 
-### HACS (Recommended)
+### HACS (recommended)
 
-1. Click the button above or manually add this repository to HACS:
-   - Open HACS in your Home Assistant instance
-   - Go to "Integrations"
-   - Click the menu (⋮) → "Custom repositories"
-   - Add `https://github.com/FredrikElliot/home-project-ledger` as an Integration
-2. Search for "Home Project Ledger" and click "Download"
-3. Restart Home Assistant
-4. Go to **Settings** → **Devices & Services** → **Add Integration** → **Home Project Ledger**
+1. Click the **Open in HACS** button above, or add `https://github.com/FredrikElliot/home-project-ledger` as a custom repository (category: Integration).
+2. Download **Home Project Ledger** and restart Home Assistant.
+3. Go to **Settings** → **Devices & Services** → **Add Integration** → **Home Project Ledger**.
 
-### Manual Installation
-
-1. Download the latest release from [GitHub Releases](https://github.com/FredrikElliot/home-project-ledger/releases)
-2. Copy the `custom_components/home_project_ledger` folder to your `config/custom_components` directory
-3. Restart Home Assistant
-4. Go to **Settings** → **Devices & Services** → **Add Integration** → **Home Project Ledger**
+Manual installation, Google Drive setup, updating, troubleshooting and uninstalling are covered in the [Installation Guide](https://github.com/FredrikElliot/home-project-ledger/blob/main/INSTALLATION.md).
 
 ## Configuration
 
-During setup, you'll configure:
-- **Default Currency** - Your preferred currency (SEK, USD, EUR, etc.)
-- **Storage Provider** - Local storage or Google Drive for receipt images
+During setup you choose:
 
-## Usage
+- **Default currency** - for example SEK, USD or EUR
+- **Storage provider** - local storage or Google Drive for receipt images
 
-### Accessing the Panel
+## Getting started
 
-After installation, you'll find **Project Ledger** (or **Projektredovisning** in Swedish) in your sidebar with a notebook icon.
+After setup, **Project Ledger** (**Projektredovisning** in Swedish) appears in the sidebar. From there you can create projects, add receipts, register items by room and follow spending on the dashboard.
 
-### Creating Projects
+The [Quick Start Guide](https://github.com/FredrikElliot/home-project-ledger/blob/main/QUICKSTART.md) walks you through your first project and receipt in a few minutes.
 
-1. Open the Home Project Ledger panel
-2. Go to the **Projects** tab
-3. Click the **+** button (floating action button)
-4. Enter project details:
-   - Project name
-   - Area (optional)
-   - Budget (optional)
-   - Category budgets (optional)
-5. Click **Create Project**
+### Budget health
 
-### Adding Receipts
+Projects with a budget are marked:
 
-1. Open a project or use the floating action button
-2. Click **+ Add Receipt**
-3. Fill in the receipt details:
-   - Merchant name
-   - Date
-   - Total amount
-   - Categories (optional, supports multiple)
-   - Upload receipt images (optional)
-4. Click **Add Receipt**
+- **On Track** (green) - under 75% of budget
+- **At Risk** (yellow) - 75-100% of budget
+- **Over Budget** (red) - above budget
 
-### Tracking Items
-
-Open the **Items** tab to add a standalone item with its name, purchase date, price, category, room, and receipt photos. Project receipts can also be itemized with named rows, each assigned a price, category, and room. Items can be searched and filtered by room or category.
-
-### Budget Tracking
-
-Set budgets on your projects to see:
-- **On Track** (green) - Under 75% of budget
-- **At Risk** (yellow) - Between 75-100% of budget  
-- **Over Budget** (red) - Exceeds budget
-
-The dashboard shows budget health at a glance with hoverable tooltips showing project details.
-
-### Services
-
-The integration provides the following services for automations:
+## Services
 
 | Service | Description |
 |---------|-------------|
@@ -139,58 +74,32 @@ The integration provides the following services for automations:
 | `home_project_ledger.update_receipt` | Update receipt details |
 | `home_project_ledger.delete_receipt` | Delete a receipt |
 
-### Sensors
+Ready-made automations, scripts and dashboard cards are in [Examples](https://github.com/FredrikElliot/home-project-ledger/blob/main/EXAMPLES.md).
 
-The integration automatically creates sensors for:
+## Sensors
 
-- **Total House Spend** - Total spending across all projects
-- **Area Spend** - Spending per Home Assistant area (created dynamically)
-- **Project Spend** - Spending per project with budget info in attributes
+- **Total House Spend** - total spending across all projects
+- **Area Spend** - spending per Home Assistant area (created dynamically)
+- **Project Spend** - spending per project, with budget info in attributes
 
-These sensors have `SensorDeviceClass.MONETARY` and `SensorStateClass.TOTAL`, enabling:
-- Long-term statistics recording
-- Historical trend analysis
-- Use in automations and dashboards
+All sensors are monetary and record long-term statistics, so you can use them in statistics graphs, history and automations.
 
-### Dashboard Cards
-
-Add navigation buttons to your Lovelace dashboard:
-
-```yaml
-type: button
-name: Project Ledger
-icon: mdi:notebook-edit
-tap_action:
-  action: navigate
-  navigation_path: /home-project-ledger
-```
-
-```yaml
-type: entities
-title: Project Spending
-entities:
-  - sensor.home_project_ledger_total_house_spend
-```
-
-## Data Storage
+## Data storage
 
 - **Project and receipt metadata**: `.storage/home_project_ledger.*.json`
 - **Receipt images (local)**: `config/www/home_project_ledger/receipts/`
-- **Receipt images (cloud)**: Your configured cloud storage provider
+- **Receipt images (cloud)**: your configured cloud storage provider
 
-## Contributing
+Include these paths in your backups.
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+## Support and contributing
 
-## Support
-
-- [Issue Tracker](https://github.com/FredrikElliot/home-project-ledger/issues)
-- [Discussions](https://github.com/FredrikElliot/home-project-ledger/discussions)
+- Found a bug or have an idea? [Open an issue](https://github.com/FredrikElliot/home-project-ledger/issues).
+- Want to contribute code? See [Contributing](https://github.com/FredrikElliot/home-project-ledger/blob/main/CONTRIBUTING.md).
+- Release history is in the [Changelog](https://github.com/FredrikElliot/home-project-ledger/blob/main/CHANGELOG.md).
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT - see [LICENSE](https://github.com/FredrikElliot/home-project-ledger/blob/main/LICENSE).
 
-## Credits
-
-Created by [@FredrikElliot](https://github.com/FredrikElliot)
+Created by [@FredrikElliot](https://github.com/FredrikElliot).

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Installation help
+    url: https://github.com/FredrikElliot/home-project-ledger/blob/main/INSTALLATION.md
+    about: Setup, Google Drive, updating and troubleshooting.
+  - name: Bug report
+    url: https://github.com/FredrikElliot/home-project-ledger/issues/new?template=bug_report.yml
+    about: Report a bug or unexpected behavior.
