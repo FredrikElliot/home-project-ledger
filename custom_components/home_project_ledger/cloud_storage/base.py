@@ -16,7 +16,6 @@ class StorageProviderType(str, Enum):
     GOOGLE_DRIVE = "google_drive"
     ONEDRIVE = "onedrive"
     DROPBOX = "dropbox"
-    WEBDAV = "webdav"
 
 
 @dataclass
@@ -28,11 +27,6 @@ class StorageConfig:
     access_token: Optional[str] = None
     refresh_token: Optional[str] = None
     token_expiry: Optional[str] = None
-    
-    # WebDAV specific
-    webdav_url: Optional[str] = None
-    webdav_username: Optional[str] = None
-    webdav_password: Optional[str] = None
     
     # Common settings
     folder_path: str = "/HomeProjectLedger/receipts"
@@ -47,9 +41,6 @@ class StorageConfig:
             "access_token": self.access_token,
             "refresh_token": self.refresh_token,
             "token_expiry": self.token_expiry,
-            "webdav_url": self.webdav_url,
-            "webdav_username": self.webdav_username,
-            "webdav_password": self.webdav_password,
             "folder_path": self.folder_path,
             "extra": self.extra,
         }
@@ -68,9 +59,6 @@ class StorageConfig:
             access_token=data.get("access_token"),
             refresh_token=data.get("refresh_token"),
             token_expiry=data.get("token_expiry"),
-            webdav_url=data.get("webdav_url"),
-            webdav_username=data.get("webdav_username"),
-            webdav_password=data.get("webdav_password"),
             folder_path=data.get("folder_path", "/HomeProjectLedger/receipts"),
             extra=data.get("extra", {}),
         )
@@ -116,14 +104,8 @@ class CloudStorageProvider(ABC):
         self.config = config
     
     @abstractmethod
-    async def authenticate(self, auth_code: Optional[str] = None) -> bool:
-        """Authenticate with the provider.
-        
-        For OAuth providers, if auth_code is None, this should return False
-        and get_auth_url() should be called to get the authorization URL.
-        
-        Returns True if authentication was successful.
-        """
+    async def authenticate(self) -> bool:
+        """Check whether the provider is authenticated."""
         pass
     
     @abstractmethod

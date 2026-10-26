@@ -65,7 +65,7 @@ class GoogleDriveProvider(CloudStorageProvider):
         # OAuth flow is handled by Home Assistant's config flow
         return None
     
-    async def authenticate(self, auth_code: Optional[str] = None) -> bool:
+    async def authenticate(self) -> bool:
         """Authenticate with Google Drive (not used with OAuth2Session)."""
         # Authentication is handled by Home Assistant's config flow
         return self._oauth_session is not None

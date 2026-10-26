@@ -24,7 +24,7 @@ class LocalStorageProvider(CloudStorageProvider):
         self.hass = hass
         self._base_path = Path(hass.config.path("www/home_project_ledger/receipts"))
     
-    async def authenticate(self, auth_code: Optional[str] = None) -> bool:
+    async def authenticate(self) -> bool:
         """Local storage doesn't need authentication."""
         return True
     
