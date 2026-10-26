@@ -536,8 +536,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
       receiptItems: null,
     };
     this._initialized = false;
-    this._amChartsLoaded = false;
-    this._chartInstances = []; // Track chart instances for cleanup
   }
 
   // Get translated string
@@ -586,60 +584,9 @@ class HomeProjectLedgerPanel extends HTMLElement {
   }
 
   disconnectedCallback() {
-    // Clean up chart instances
-    this._disposeCharts();
     document.removeEventListener("click", this._handleDocumentClick.bind(this));
   }
   
-  _disposeCharts() {
-    if (this._chartInstances) {
-      this._chartInstances.forEach(chart => {
-        if (chart && chart.dispose) {
-          chart.dispose();
-        }
-      });
-      this._chartInstances = [];
-    }
-    this._timelineChart = null;
-  }
-  
-  async _loadAmCharts() {
-    if (this._amChartsLoaded || window.am5) {
-      this._amChartsLoaded = true;
-      return true;
-    }
-    
-    try {
-      // Load amCharts 5 core
-      await this._loadScript('https://cdn.amcharts.com/lib/5/index.js');
-      // Load XY chart package
-      await this._loadScript('https://cdn.amcharts.com/lib/5/xy.js');
-      // Load animated theme
-      await this._loadScript('https://cdn.amcharts.com/lib/5/themes/Animated.js');
-      
-      this._amChartsLoaded = true;
-      return true;
-    } catch (error) {
-      console.error('Failed to load amCharts:', error);
-      return false;
-    }
-  }
-  
-  _loadScript(src) {
-    return new Promise((resolve, reject) => {
-      // Check if already loaded
-      if (document.querySelector(`script[src="${src}"]`)) {
-        resolve();
-        return;
-      }
-      const script = document.createElement('script');
-      script.src = src;
-      script.onload = resolve;
-      script.onerror = reject;
-      document.head.appendChild(script);
-    });
-  }
-
   _handleDocumentClick(e) {
     if (this._state.openMenuId && !e.target.closest(".menu-container")) {
       this._state.openMenuId = null;
@@ -956,12 +903,12 @@ class HomeProjectLedgerPanel extends HTMLElement {
         .bar-chart-receipt-project { color: var(--primary-text-color, #212121); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .bar-chart-receipt-amount { font-weight: 500; color: var(--primary-text-color, #212121); flex-shrink: 0; margin-left: 12px; }
         
-        /* Timeline Chart - amCharts Container */
+        /* Timeline Chart */
         .timeline-chart { height: 220px; position: relative; padding: 8px 0; }
         @media (min-width: 600px) { .timeline-chart { height: 260px; } }
         .timeline-chart-container { width: 100%; height: 100%; position: relative; }
         
-        /* Fallback SVG Chart Styles */
+        /* SVG Timeline Chart Styles */
         .timeline-chart svg { width: 100%; height: 100%; }
         .timeline-chart-area { fill: url(#timeline-gradient); opacity: 0.3; }
         .timeline-chart-line { fill: none; stroke: var(--primary-color, #03a9f4); stroke-width: 2px; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
@@ -1377,19 +1324,17 @@ class HomeProjectLedgerPanel extends HTMLElement {
 
     const newTimelineContainer = this.querySelector('#timeline-chart-container');
     if (timelineContainer && newTimelineContainer) {
-      // Restore the live canvas before the browser paints the refreshed dashboard.
+      // Restore the existing SVG before the browser paints the refreshed dashboard.
       newTimelineContainer.replaceWith(timelineContainer);
-    } else {
-      this._disposeCharts();
     }
 
     this._attachEventListeners();
     
-    // Initialize amCharts after DOM is ready (only for dashboard tab)
+    // Initialize the timeline chart after DOM is ready (only for dashboard tab)
     if (this._state.activeTab === 'dashboard') {
       // Use requestAnimationFrame to ensure DOM is painted
       requestAnimationFrame(() => {
-        this._initAmCharts();
+        this._initTimelineChart();
         this._initBudgetHealthTooltips();
         this._initDonutTooltips();
         this._initMerchantExpanders();
@@ -2018,7 +1963,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
       '</div>';
     }
     
-    // Return container - amCharts will be initialized after render
+    // Return container - the timeline chart will be initialized after render
     return '<div class="dashboard-card full-width">' +
       '<div class="dashboard-card-header"><h3>' + this._t('spendingTimeline') + '</h3></div>' +
       '<div class="dashboard-card-body">' +
@@ -2029,298 +1974,17 @@ class HomeProjectLedgerPanel extends HTMLElement {
     '</div>';
   }
   
-  async _initAmCharts() {
-    // Only init if we have data and the container exists
+  _initTimelineChart() {
     const container = this.querySelector('#timeline-chart-container');
     if (!container || !this._timelineChartData || this._timelineChartData.length === 0) {
       return;
     }
-    
-    // Skip loading for an existing chart, and use the latest data after any await.
-    const loaded = this._timelineChart?.container === container || await this._loadAmCharts();
-    if (!this.isConnected || this.querySelector('#timeline-chart-container') !== container) return;
 
-    const chartData = this._timelineChartData.map(d => ({
-      category: d.label,
-      fullLabel: d.fullLabel || d.label,
-      value: d.value,
-      date: d.date,
-      projects: d.projects || {},
-    }));
-
-    if (this._timelineChart?.container === container) {
-      this._updateTimelineChart(chartData);
-      return;
-    }
-    
-    if (!loaded || !window.am5) {
-      // Fallback to SVG chart
-      this._renderFallbackChart(container);
-      return;
-    }
-    
-    try {
-      const am5 = window.am5;
-      const am5xy = window.am5xy;
-      const am5themes_Animated = window.am5themes_Animated;
-      
-      // Create root
-      const root = am5.Root.new(container);
-      this._chartInstances.push(root);
-      
-      // Set themes
-      root.setThemes([am5themes_Animated.new(root)]);
-      
-      // Get HA theme colors
-      const styles = getComputedStyle(this);
-      const primaryColor = styles.getPropertyValue('--primary-color').trim() || '#03a9f4';
-      const textColor = styles.getPropertyValue('--primary-text-color').trim() || '#212121';
-      const secondaryTextColor = styles.getPropertyValue('--secondary-text-color').trim() || '#757575';
-      const gridColor = styles.getPropertyValue('--divider-color').trim() || '#e0e0e0';
-      const bgColor = styles.getPropertyValue('--card-background-color').trim() || '#ffffff';
-      
-      // Store reference for tooltip formatting
-      const self = this;
-      
-      // Create chart
-      const chart = root.container.children.push(am5xy.XYChart.new(root, {
-        panX: false,
-        panY: false,
-        wheelX: "none",
-        wheelY: "none",
-        paddingLeft: 0,
-        paddingRight: 0,
-      }));
-      
-      // Create X axis
-      const xAxis = chart.xAxes.push(am5xy.CategoryAxis.new(root, {
-        categoryField: "category",
-        renderer: am5xy.AxisRendererX.new(root, {
-          minGridDistance: 30,
-        }),
-        tooltip: am5.Tooltip.new(root, {}),
-      }));
-      
-      xAxis.get("renderer").labels.template.setAll({
-        fill: am5.color(secondaryTextColor),
-        fontSize: 11,
-      });
-      
-      xAxis.get("renderer").grid.template.setAll({
-        stroke: am5.color(gridColor),
-        strokeOpacity: 0.5,
-      });
-      
-      xAxis.data.setAll(chartData);
-      
-      // Create Y axis
-      const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
-        min: 0,
-        renderer: am5xy.AxisRendererY.new(root, {}),
-      }));
-      
-      yAxis.get("renderer").labels.template.setAll({
-        fill: am5.color(secondaryTextColor),
-        fontSize: 11,
-      });
-      
-      yAxis.get("renderer").grid.template.setAll({
-        stroke: am5.color(gridColor),
-        strokeOpacity: 0.3,
-        strokeDasharray: [4, 4],
-      });
-      
-      // Create tooltip with project breakdown
-      const tooltip = am5.Tooltip.new(root, {
-        pointerOrientation: "vertical",
-        getFillFromSprite: false,
-        getStrokeFromSprite: false,
-        labelText: "",
-      });
-      
-      tooltip.get("background").setAll({
-        fill: am5.color(bgColor),
-        fillOpacity: 0.98,
-        stroke: am5.color(gridColor),
-        strokeWidth: 1,
-        shadowColor: am5.color(0x000000),
-        shadowBlur: 8,
-        shadowOffsetX: 0,
-        shadowOffsetY: 2,
-        shadowOpacity: 0.15,
-      });
-      
-      // Custom tooltip text adapter with project breakdown
-      tooltip.label.adapters.add("text", (text, target) => {
-        const dataItem = target.dataItem;
-        if (!dataItem) return "";
-        
-        const data = dataItem.dataContext;
-        const total = self._formatCurrency(data.value);
-        const projects = data.projects || {};
-        const projectNames = Object.keys(projects).sort((a, b) => projects[b] - projects[a]);
-        
-        let content = "[bold]" + data.category + "[/]\n";
-        content += "[bold fontSize:14px]" + total + "[/]";
-        
-        if (projectNames.length > 0) {
-          content += "\n────────";
-          projectNames.forEach(name => {
-            const amount = self._formatCurrency(projects[name]);
-            content += "\n" + self._escapeHtml(name) + ": [bold]" + amount + "[/]";
-          });
-        }
-        
-        return content;
-      });
-      
-      // Create series with smooth line
-      const series = chart.series.push(am5xy.SmoothedXLineSeries.new(root, {
-        name: this._t('spendingTimeline'),
-        xAxis: xAxis,
-        yAxis: yAxis,
-        valueYField: "value",
-        categoryXField: "category",
-        tension: 0.3,
-        tooltip: tooltip,
-      }));
-      
-      // Style the line
-      series.strokes.template.setAll({
-        stroke: am5.color(primaryColor),
-        strokeWidth: 2,
-      });
-      
-      // Add fill under the line
-      series.fills.template.setAll({
-        visible: true,
-        fillOpacity: 0.2,
-        fill: am5.color(primaryColor),
-      });
-      
-      // Create custom HTML tooltip element
-      let customTooltip = this.querySelector('.amcharts-custom-tooltip');
-      if (!customTooltip) {
-        customTooltip = document.createElement('div');
-        customTooltip.className = 'amcharts-custom-tooltip timeline-chart-tooltip';
-        this.appendChild(customTooltip);
-      }
-      
-      // Add bullets (dots) - larger and hoverable
-      series.bullets.push(() => {
-        const circle = am5.Circle.new(root, {
-          radius: 6,
-          fill: am5.color(bgColor),
-          stroke: am5.color(primaryColor),
-          strokeWidth: 2,
-          cursorOverStyle: "pointer",
-        });
-        
-        // Highlight on hover
-        circle.states.create("hover", {
-          radius: 8,
-          fill: am5.color(primaryColor),
-        });
-        
-        // Add hover events for custom tooltip
-        circle.events.on("pointerover", (ev) => {
-          const dataItem = ev.target.dataItem;
-          if (!dataItem) return;
-          
-          const data = dataItem.dataContext;
-          const total = self._formatCurrency(data.value);
-          const projects = data.projects || {};
-          const projectNames = Object.keys(projects).sort((a, b) => projects[b] - projects[a]);
-          
-          // Use fullLabel for tooltip (includes month for custom date ranges)
-          const displayLabel = data.fullLabel || data.category;
-          let content = '<div class="timeline-chart-tooltip-label">' + displayLabel + '</div>';
-          content += '<div class="timeline-chart-tooltip-value">' + total + '</div>';
-          
-          if (projectNames.length > 0) {
-            content += '<div class="timeline-chart-tooltip-projects">';
-            projectNames.forEach(name => {
-              const amount = self._formatCurrency(projects[name]);
-              content += '<div class="timeline-chart-tooltip-project">' +
-                '<span class="project-name">' + self._escapeHtml(name) + '</span>' +
-                '<span class="project-amount">' + amount + '</span>' +
-              '</div>';
-            });
-            content += '</div>';
-          }
-          
-          customTooltip.innerHTML = content;
-          
-          // Position tooltip relative to cursor
-          const pointerX = ev.originalEvent.clientX;
-          const pointerY = ev.originalEvent.clientY;
-          const tooltipWidth = 180;
-          
-          let left = pointerX - tooltipWidth / 2;
-          let top = pointerY - 30; // Position just above the cursor
-          
-          if (left < 10) left = 10;
-          if (left + tooltipWidth > window.innerWidth - 10) {
-            left = window.innerWidth - tooltipWidth - 10;
-          }
-          if (top < 10) {
-            top = pointerY + 20; // Show below if too close to top
-          }
-          
-          customTooltip.style.left = left + 'px';
-          customTooltip.style.top = top + 'px';
-          customTooltip.style.display = 'block';
-        });
-        
-        circle.events.on("pointerout", () => {
-          customTooltip.style.display = 'none';
-        });
-        
-        return am5.Bullet.new(root, {
-          sprite: circle,
-        });
-      });
-      
-      // Set data
-      series.data.setAll(chartData);
-      this._timelineChart = { container, xAxis, series };
-      
-      // Animate on load
-      series.appear(1000);
-      chart.appear(1000, 100);
-      
-    } catch (error) {
-      console.error('Error initializing amCharts:', error);
-      this._disposeCharts();
-      this._renderFallbackChart(container);
-    }
+    this._renderFallbackChart(container);
   }
 
-  _updateTimelineChart(chartData) {
-    const { xAxis, series } = this._timelineChart;
-    chartData.forEach((point, index) => {
-      const previous = series.data.getIndex(index);
-      if (!previous) {
-        xAxis.data.push(point);
-        series.data.push(point);
-      } else {
-        if (previous.category !== point.category) {
-          xAxis.data.setIndex(index, point);
-        }
-        if (JSON.stringify(previous) !== JSON.stringify(point)) {
-          series.data.setIndex(index, point);
-        }
-      }
-    });
-    while (series.data.length > chartData.length) {
-      const index = series.data.length - 1;
-      series.data.removeIndex(index);
-      xAxis.data.removeIndex(index);
-    }
-  }
-  
   _renderFallbackChart(container) {
-    // Fallback SVG chart when amCharts fails to load
+    // Render the spending timeline as a self-contained SVG chart.
     const data = this._timelineChartData;
     if (!data || data.length === 0) return;
     
