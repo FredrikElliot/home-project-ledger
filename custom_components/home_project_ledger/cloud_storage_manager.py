@@ -9,6 +9,7 @@ from homeassistant.helpers.storage import Store
 
 from .const import (
     DOMAIN,
+    RECEIPT_IMAGE_URL,
     STORAGE_KEY_CONFIG,
     STORAGE_PROVIDER_LOCAL,
     STORAGE_PROVIDER_GOOGLE_DRIVE,
@@ -220,7 +221,7 @@ class CloudStorageManager:
             else:
                 _LOGGER.warning("Cannot delete Google Drive image: no Google Drive provider configured")
                 return False
-        elif image_path.startswith("/local/"):
+        elif image_path.startswith(RECEIPT_IMAGE_URL):
             local_provider = LocalStorageProvider(self._config, self.hass)
             return await local_provider.delete_image(image_path)
         else:
@@ -234,7 +235,7 @@ class CloudStorageManager:
             else:
                 _LOGGER.warning("Cannot get Google Drive image: no Google Drive provider configured")
                 return None
-        elif image_path.startswith("/local/"):
+        elif image_path.startswith(RECEIPT_IMAGE_URL):
             local_provider = LocalStorageProvider(self._config, self.hass)
             return await local_provider.get_image(image_path)
         else:

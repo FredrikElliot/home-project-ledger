@@ -76,7 +76,8 @@ Choose where to store receipt images:
 
 - **Local Storage** (Default)
   - Images stored on your Home Assistant server
-  - Located in `config/www/home_project_ledger/receipts/`
+  - Located in `config/home_project_ledger/receipts/`, outside the public `www` directory
+  - Access requires Home Assistant authentication; panel previews use short-lived signed URLs
   - No additional setup required
 
 - **Google Drive**
@@ -147,7 +148,7 @@ Look for:
 3. Try removing and re-adding the integration
 
 ### Images Not Displaying
-1. Check that `www/home_project_ledger/receipts/` directory exists
+1. Check that `home_project_ledger/receipts/` exists inside your Home Assistant config directory
 2. Verify file permissions
 3. For cloud storage, check OAuth token validity
 
@@ -170,5 +171,6 @@ Look for:
 2. Delete `custom_components/home_project_ledger/` folder
 3. Optionally delete data:
    - `.storage/home_project_ledger.*.json`
+   - `home_project_ledger/receipts/` (private receipt photos)
    - `www/home_project_ledger/`
 4. Restart Home Assistant

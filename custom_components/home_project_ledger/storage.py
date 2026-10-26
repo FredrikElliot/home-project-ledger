@@ -7,7 +7,13 @@ from typing import Optional
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
-from .const import STORAGE_KEY_PROJECTS, STORAGE_KEY_RECEIPTS, STORAGE_VERSION
+from .const import (
+    LEGACY_RECEIPT_IMAGE_URL,
+    RECEIPT_IMAGE_URL,
+    STORAGE_KEY_PROJECTS,
+    STORAGE_KEY_RECEIPTS,
+    STORAGE_VERSION,
+)
 from .models import Project, Receipt
 
 _LOGGER = logging.getLogger(__name__)
@@ -45,6 +51,25 @@ class ProjectLedgerStorage:
                 for rid, rdata in receipts_data.get("receipts", {}).items()
             }
             _LOGGER.debug("Loaded %d receipts", len(self._receipts))
+
+            migrated = False
+            for receipt in self._receipts.values():
+                paths = [
+                    path.replace(LEGACY_RECEIPT_IMAGE_URL, RECEIPT_IMAGE_URL, 1)
+                    if path.startswith(LEGACY_RECEIPT_IMAGE_URL) else path
+                    for path in receipt.image_paths
+                ]
+                image_path = receipt.image_path
+                if image_path and image_path.startswith(LEGACY_RECEIPT_IMAGE_URL):
+                    image_path = image_path.replace(
+                        LEGACY_RECEIPT_IMAGE_URL, RECEIPT_IMAGE_URL, 1
+                    )
+                if paths != receipt.image_paths or image_path != receipt.image_path:
+                    receipt.image_paths = paths
+                    receipt.image_path = image_path
+                    migrated = True
+            if migrated:
+                await self.async_save_receipts()
 
     async def async_save_projects(self) -> None:
         """Save projects to storage."""

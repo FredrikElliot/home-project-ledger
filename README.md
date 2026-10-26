@@ -87,7 +87,9 @@ All sensors are monetary and record long-term statistics, so you can use them in
 ## Data storage
 
 - **Project and receipt metadata**: `.storage/home_project_ledger.*.json`
-- **Receipt images (local)**: `config/www/home_project_ledger/receipts/`
+- **Receipt images (local)**: `config/home_project_ledger/receipts/` (private; served through an authenticated API with temporary signed URLs for previews)
+
+Existing local receipt photos and stored paths are migrated automatically on startup, removing the public `www/home_project_ledger/receipts/` directory. Panel assets and graphs are unchanged.
 - **Receipt images (cloud)**: your configured cloud storage provider
 
 Include these paths in your backups.
