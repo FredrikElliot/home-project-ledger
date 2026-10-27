@@ -1957,7 +1957,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
     '</div>';
   }
   
-  _initTimelineChart() {
+  _renderTimelineChart() {
     const container = this.querySelector('#timeline-chart-container');
     if (!container || !this._timelineChartData || this._timelineChartData.length === 0) {
       return;

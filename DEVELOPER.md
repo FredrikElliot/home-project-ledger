@@ -164,7 +164,7 @@ The panel is a vanilla JavaScript SPA in `frontend/panel.js`:
 
 ### Key Components
 - Navigation tabs (Dashboard, Projects, Receipts, Merchants, Categories, Settings)
-- Dashboard with charts (SVG timeline graph, CSS donuts)
+- Dashboard with SVG timeline and CSS donut charts
 - Project list with budget progress bars
 - Receipt modals with image upload
 - Expandable lists for merchants/categories
