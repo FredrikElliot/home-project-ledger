@@ -101,10 +101,6 @@ class CloudStorageManager:
             # TODO: Implement Dropbox provider
             _LOGGER.warning("Dropbox provider not yet implemented, falling back to local")
             self._provider = LocalStorageProvider(self._config, self.hass)
-        elif provider_type == StorageProviderType.WEBDAV:
-            # TODO: Implement WebDAV provider
-            _LOGGER.warning("WebDAV provider not yet implemented, falling back to local")
-            self._provider = LocalStorageProvider(self._config, self.hass)
         else:
             self._provider = LocalStorageProvider(self._config, self.hass)
     
@@ -154,13 +150,6 @@ class CloudStorageManager:
                 "available": False,  # Not yet implemented
                 "description": "Store images in your Dropbox account",
             },
-            {
-                "type": StorageProviderType.WEBDAV.value,
-                "name": "WebDAV",
-                "configured": True,  # WebDAV uses per-config credentials
-                "available": False,  # Not yet implemented
-                "description": "Store images on a WebDAV server (Nextcloud, ownCloud, etc.)",
-            },
         ]
     
     async def set_provider(self, provider_type: StorageProviderType) -> bool:
@@ -183,13 +172,6 @@ class CloudStorageManager:
     def get_auth_url(self) -> Optional[str]:
         """Get the OAuth authorization URL for the current provider."""
         return self.provider.get_auth_url()
-    
-    async def authenticate(self, auth_code: str) -> bool:
-        """Authenticate with the current provider using an auth code."""
-        success = await self.provider.authenticate(auth_code)
-        if success:
-            await self.async_save()
-        return success
     
     async def disconnect(self) -> bool:
         """Disconnect from the current cloud provider and switch to local."""
@@ -240,14 +222,3 @@ class CloudStorageManager:
             return await local_provider.get_image(image_path)
         else:
             return await self.provider.get_image(image_path)
-    
-    def set_webdav_credentials(
-        self,
-        url: str,
-        username: str,
-        password: str,
-    ) -> None:
-        """Set WebDAV credentials."""
-        self._config.webdav_url = url
-        self._config.webdav_username = username
-        self._config.webdav_password = password

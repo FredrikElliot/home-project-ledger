@@ -3,13 +3,17 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
 
 from aiohttp import web
+import voluptuous as vol
+
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import Unauthorized
 
+from .cloud_storage.base import StorageProviderType
 from .const import DOMAIN, RECEIPT_IMAGE_DIR, RECEIPT_IMAGE_URL
+from .services import SERVICE_SET_STORAGE_CONFIG_SCHEMA
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -109,10 +113,18 @@ class StorageConfigView(HomeAssistantView):
     
     async def post(self, request: web.Request) -> web.Response:
         """Handle POST request to configure storage."""
+        if not request["hass_user"].is_admin:
+            raise Unauthorized()
+
         try:
             data = await request.json()
         except Exception:
             return self.json({"success": False, "error": "Invalid JSON"}, status_code=400)
+
+        try:
+            data = SERVICE_SET_STORAGE_CONFIG_SCHEMA(data)
+        except vol.Invalid:
+            return self.json({"success": False, "error": "Invalid storage configuration"}, status_code=400)
         
         # Find the cloud storage manager
         manager = None
@@ -134,33 +146,12 @@ class StorageConfigView(HomeAssistantView):
             # Check if setting provider
             provider_str = data.get("provider")
             if provider_str:
-                from .cloud_storage.base import StorageProviderType
                 try:
                     provider = StorageProviderType(provider_str)
                     await manager.set_provider(provider)
                     _LOGGER.info("Set storage provider to: %s", provider.value)
                 except ValueError:
                     return self.json({"success": False, "error": f"Invalid provider: {provider_str}"}, status_code=400)
-            
-            # Check if authenticating with OAuth code
-            auth_code = data.get("auth_code")
-            if auth_code:
-                success = await manager.authenticate(auth_code)
-                if not success:
-                    return self.json({"success": False, "error": "Authentication failed"}, status_code=400)
-                _LOGGER.info("Authenticated with cloud storage")
-                return self.json({"success": True, "message": "Authentication successful"})
-            
-            # Check if setting WebDAV credentials
-            webdav_url = data.get("webdav_url")
-            if webdav_url:
-                manager.set_webdav_credentials(
-                    url=webdav_url,
-                    username=data.get("webdav_username", ""),
-                    password=data.get("webdav_password", ""),
-                )
-                await manager.async_save()
-                _LOGGER.info("Set WebDAV credentials")
             
             # Check if setting folder path
             folder_path = data.get("folder_path")
@@ -176,83 +167,9 @@ class StorageConfigView(HomeAssistantView):
             return self.json({"success": False, "error": str(e)}, status_code=500)
 
 
-class OAuthCallbackView(HomeAssistantView):
-    """View to handle OAuth callback."""
-    
-    url = "/api/home_project_ledger/oauth/callback"
-    name = "api:home_project_ledger:oauth:callback"
-    requires_auth = False  # Callback comes from OAuth provider
-    
-    def __init__(self, hass: HomeAssistant) -> None:
-        """Initialize the view."""
-        self.hass = hass
-    
-    async def get(self, request: web.Request) -> web.Response:
-        """Handle OAuth callback."""
-        code = request.query.get("code")
-        error = request.query.get("error")
-        
-        if error:
-            return web.Response(
-                text=f"""
-                <html>
-                <head><title>Authorization Error</title></head>
-                <body>
-                    <h1>Authorization Error</h1>
-                    <p>Error: {error}</p>
-                    <p>You can close this window.</p>
-                </body>
-                </html>
-                """,
-                content_type="text/html",
-            )
-        
-        if not code:
-            return web.Response(
-                text="""
-                <html>
-                <head><title>Authorization Error</title></head>
-                <body>
-                    <h1>Authorization Error</h1>
-                    <p>No authorization code received.</p>
-                    <p>You can close this window.</p>
-                </body>
-                </html>
-                """,
-                content_type="text/html",
-            )
-        
-        # Return page with code that user can copy
-        return web.Response(
-            text=f"""
-            <html>
-            <head>
-                <title>Authorization Code</title>
-                <style>
-                    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }}
-                    .code-box {{ background: #f5f5f5; padding: 20px; border-radius: 8px; font-family: monospace; word-break: break-all; margin: 20px 0; }}
-                    .instructions {{ color: #666; }}
-                </style>
-            </head>
-            <body>
-                <h1>✅ Authorization Successful</h1>
-                <p class="instructions">Copy the code below and paste it in the Home Project Ledger settings:</p>
-                <div class="code-box" id="code">{code}</div>
-                <button onclick="navigator.clipboard.writeText(document.getElementById('code').textContent); this.textContent='Copied!';">
-                    Copy Code
-                </button>
-                <p class="instructions">After pasting the code, you can close this window.</p>
-            </body>
-            </html>
-            """,
-            content_type="text/html",
-        )
-
-
 def async_register_views(hass: HomeAssistant) -> None:
     """Register HTTP views."""
     hass.http.register_view(ReceiptImageView(hass))
     hass.http.register_view(StorageStatusView(hass))
     hass.http.register_view(StorageConfigView(hass))
-    hass.http.register_view(OAuthCallbackView(hass))
     _LOGGER.info("Registered Home Project Ledger HTTP views")

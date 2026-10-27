@@ -325,11 +325,11 @@ delete_receipt:
 
 set_storage_config:
   name: Set storage configuration
-  description: Configure cloud storage settings for receipt images
+  description: Configure cloud storage settings for receipt images (admin only)
   fields:
     provider:
       name: Provider
-      description: Storage provider type (local, google_drive, onedrive, dropbox, webdav)
+      description: Storage provider type (local, google_drive, onedrive, dropbox)
       required: false
       example: "google_drive"
       selector:
@@ -339,38 +339,12 @@ set_storage_config:
             - "google_drive"
             - "onedrive"
             - "dropbox"
-            - "webdav"
-    auth_code:
-      name: Authorization code
-      description: OAuth authorization code from the provider
-      required: false
-      selector:
-        text:
     disconnect:
       name: Disconnect
       description: Disconnect from cloud storage and switch to local
       required: false
       selector:
         boolean:
-    webdav_url:
-      name: WebDAV URL
-      description: URL of the WebDAV server
-      required: false
-      example: "https://nextcloud.example.com/remote.php/dav/files/username"
-      selector:
-        text:
-    webdav_username:
-      name: WebDAV username
-      description: Username for WebDAV authentication
-      required: false
-      selector:
-        text:
-    webdav_password:
-      name: WebDAV password
-      description: Password for WebDAV authentication
-      required: false
-      selector:
-        text:
     folder_path:
       name: Folder path
       description: Custom folder path for storing images in the cloud

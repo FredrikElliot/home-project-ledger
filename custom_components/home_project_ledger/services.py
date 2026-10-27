@@ -14,6 +14,7 @@ import voluptuous as vol
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ServiceValidationError
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.service import async_register_admin_service
 
 from .const import (
     DEFAULT_CURRENCY,
@@ -167,11 +168,7 @@ SERVICE_DELETE_RECEIPT_SCHEMA = vol.Schema(
 SERVICE_SET_STORAGE_CONFIG_SCHEMA = vol.Schema(
     {
         vol.Optional("provider"): vol.In([p.value for p in StorageProviderType]),
-        vol.Optional("auth_code"): cv.string,  # OAuth authorization code
         vol.Optional("disconnect"): cv.boolean,  # Disconnect cloud storage
-        vol.Optional("webdav_url"): cv.string,  # WebDAV server URL
-        vol.Optional("webdav_username"): cv.string,
-        vol.Optional("webdav_password"): cv.string,
         vol.Optional("folder_path"): cv.string,  # Custom folder path in cloud
     }
 )
@@ -631,26 +628,6 @@ async def async_setup_services(
             except ValueError:
                 raise ServiceValidationError(f"Invalid provider: {provider_str}")
 
-        # Check if authenticating with OAuth code
-        auth_code = call.data.get("auth_code")
-        if auth_code:
-            success = await cloud_storage_manager.authenticate(auth_code)
-            if not success:
-                raise ServiceValidationError("Authentication failed")
-            _LOGGER.info("Authenticated with cloud storage")
-            return {"success": True, "message": "Authentication successful"}
-
-        # Check if setting WebDAV credentials
-        webdav_url = call.data.get("webdav_url")
-        if webdav_url:
-            cloud_storage_manager.set_webdav_credentials(
-                url=webdav_url,
-                username=call.data.get("webdav_username", ""),
-                password=call.data.get("webdav_password", ""),
-            )
-            await cloud_storage_manager.async_save()
-            _LOGGER.info("Set WebDAV credentials")
-
         # Check if setting folder path
         folder_path = call.data.get("folder_path")
         if folder_path:
@@ -753,7 +730,8 @@ async def async_setup_services(
         schema=SERVICE_DELETE_RECEIPT_SCHEMA,
     )
 
-    hass.services.async_register(
+    async_register_admin_service(
+        hass,
         DOMAIN,
         SERVICE_SET_STORAGE_CONFIG,
         handle_set_storage_config,

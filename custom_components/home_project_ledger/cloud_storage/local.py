@@ -39,7 +39,7 @@ class LocalStorageProvider(CloudStorageProvider):
             return None
         return path
     
-    async def authenticate(self, auth_code: Optional[str] = None) -> bool:
+    async def authenticate(self) -> bool:
         """Local storage doesn't need authentication."""
         return True
     
