@@ -151,31 +151,15 @@
     },
     "set_storage_config": {
       "name": "Ställ in lagringskonfiguration",
-      "description": "Konfigurera molnlagringsinställningar för kvittobilder.",
+      "description": "Konfigurera molnlagringsinställningar för kvittobilder (endast administratörer).",
       "fields": {
         "provider": {
           "name": "Leverantör",
-          "description": "Lagringsleverantörstyp (local, google_drive, onedrive, dropbox, webdav)"
-        },
-        "auth_code": {
-          "name": "Auktoriseringskod",
-          "description": "OAuth-auktoriseringskod från leverantören"
+          "description": "Lagringsleverantörstyp (local, google_drive, onedrive, dropbox)"
         },
         "disconnect": {
           "name": "Koppla från",
           "description": "Koppla från molnlagring och byt till lokal lagring"
-        },
-        "webdav_url": {
-          "name": "WebDAV URL",
-          "description": "URL till WebDAV-servern"
-        },
-        "webdav_username": {
-          "name": "WebDAV användarnamn",
-          "description": "Användarnamn för WebDAV-autentisering"
-        },
-        "webdav_password": {
-          "name": "WebDAV lösenord",
-          "description": "Lösenord för WebDAV-autentisering"
         },
         "folder_path": {
           "name": "Mappsökväg",

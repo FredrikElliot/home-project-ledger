@@ -238,8 +238,6 @@ const TRANSLATIONS = {
     oneDriveDesc: "Store images in your Microsoft OneDrive account",
     dropbox: "Dropbox",
     dropboxDesc: "Store images in your Dropbox account",
-    webdav: "WebDAV",
-    webdavDesc: "Store images on a WebDAV server (Nextcloud, ownCloud, etc.)",
     connected: "Connected",
     notConnected: "Not connected",
     connect: "Connect",
@@ -249,14 +247,6 @@ const TRANSLATIONS = {
     storageUsed: "Storage Used",
     notConfigured: "Not configured",
     notAvailableYet: "Not available yet",
-    oauthInstructions: "Click the button below to authorize access. You'll be redirected to sign in.",
-    pasteAuthCode: "Paste the authorization code here after signing in",
-    authCode: "Authorization Code",
-    submitAuthCode: "Submit",
-    webdavUrl: "WebDAV URL",
-    webdavUsername: "Username",
-    webdavPassword: "Password",
-    saveWebdav: "Save WebDAV Settings",
     cloudStorageInfo: "Cloud Storage Configuration",
     cloudStorageInfoDesc: "To use cloud storage, remove this integration and re-add it, selecting your preferred cloud provider during setup.",
     openIntegrationSettings: "Open Integration Settings",
@@ -473,8 +463,6 @@ const TRANSLATIONS = {
     oneDriveDesc: "Lagra bilder i ditt Microsoft OneDrive-konto",
     dropbox: "Dropbox",
     dropboxDesc: "Lagra bilder i ditt Dropbox-konto",
-    webdav: "WebDAV",
-    webdavDesc: "Lagra bilder på en WebDAV-server (Nextcloud, ownCloud, etc.)",
     connected: "Ansluten",
     notConnected: "Ej ansluten",
     connect: "Anslut",
@@ -484,14 +472,6 @@ const TRANSLATIONS = {
     storageUsed: "Använt utrymme",
     notConfigured: "Ej konfigurerad",
     notAvailableYet: "Inte tillgänglig ännu",
-    oauthInstructions: "Klicka på knappen nedan för att auktorisera åtkomst. Du kommer att omdirigeras för att logga in.",
-    pasteAuthCode: "Klistra in auktoriseringskoden här efter inloggning",
-    authCode: "Auktoriseringskod",
-    submitAuthCode: "Skicka",
-    webdavUrl: "WebDAV URL",
-    webdavUsername: "Användarnamn",
-    webdavPassword: "Lösenord",
-    saveWebdav: "Spara WebDAV-inställningar",
     cloudStorageInfo: "Molnlagringskonfiguration",
     cloudStorageInfoDesc: "För att använda molnlagring, ta bort denna integration och lägg till den igen, välj önskad molnleverantör under installationen.",
     openIntegrationSettings: "Öppna integrationsinställningar",
@@ -536,7 +516,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
       pendingPhotos: [], // For new photos being added to a receipt {dataUrl, file}
       photoViewerIndex: -1, // For viewing photos in fullscreen
       storageStatus: null, // Cloud storage status
-      authCodeInput: "", // For OAuth flow
       receiptItems: null,
     };
     this._initialized = false;
@@ -2252,7 +2231,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
       receipts.slice(0, 5).forEach(r => {
         receiptsHtml += '<div class="bar-chart-receipt">' +
           '<div class="bar-chart-receipt-info">' +
-            '<div class="bar-chart-receipt-date">' + (r.date || '') + '</div>' +
+            '<div class="bar-chart-receipt-date">' + this._escapeHtml(r.date || '') + '</div>' +
             '<div class="bar-chart-receipt-project">' + this._escapeHtml(r.project_name || this._t('unknown')) + '</div>' +
           '</div>' +
           '<div class="bar-chart-receipt-amount">' + this._formatCurrency(r.total || 0) + '</div>' +
@@ -2343,7 +2322,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         '<div class="activity-icon" style="background-color: ' + color + '20; color: ' + color + ';">' + receiptIcon + '</div>' +
         '<div class="activity-content">' +
           '<div class="activity-title">' + this._escapeHtml(r.merchant || this._t('unknown')) + '</div>' +
-          '<div class="activity-meta">' + (r.project_name || '') + ' • ' + this._formatDate(r.date) + '</div>' +
+          '<div class="activity-meta">' + this._escapeHtml(r.project_name || '') + ' • ' + this._escapeHtml(this._formatDate(r.date)) + '</div>' +
         '</div>' +
         '<div class="activity-amount">' + this._formatCurrency(r.total || 0) + '</div>' +
       '</div>';
@@ -2625,7 +2604,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
       google_drive: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M7.71,3.5L1.15,15L4.58,21L11.13,9.5M9.73,15L6.3,21H19.42L22.85,15M22.28,14L15.42,2H8.58L8.57,2L15.43,14H22.28Z"/></svg>',
       onedrive: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M18.5 16C20.43 16 22 14.43 22 12.5C22 10.73 20.67 9.26 18.93 9.03C18.5 6.77 16.5 5.09 14.12 5.01C12.23 2.77 8.91 2.43 6.67 4.32C5.85 5 5.24 5.91 4.92 6.93C2.55 7.3 .5 9.3 .5 11.87C.5 14.29 2.31 16 4.74 16H18.5Z"/></svg>',
       dropbox: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,6.19L17,10.19L12,14.19L7,10.19L12,6.19M6.5,12.19L12,16.19L17.5,12.19L12,8.19L6.5,12.19M12,2L3,8L6.5,10.81L3,13.5L12,19.5L21,13.5L17.5,10.81L21,8L12,2Z"/></svg>',
-      webdav: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M4,1C2.89,1 2,1.89 2,3V7C2,8.11 2.89,9 4,9H1V11H13V9H10C11.11,9 12,8.11 12,7V3C12,1.89 11.11,1 10,1H4M4,3H10V7H4V3M3,13V18L3,20H10V18H5V13H3M14,13C12.89,13 12,13.89 12,15V19C12,20.11 12.89,21 14,21H20C21.11,21 22,20.11 22,19V15C22,13.89 21.11,13 20,13H14M14,15H20V19H14V15Z"/></svg>',
     };
 
     // If no status loaded yet, show loading
@@ -2671,25 +2649,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
       '</div>' +
     '</div>';
 
-    // Auth code input for OAuth providers
-    let authSection = '';
-    if (status.auth_url && !isConnected && status.provider !== 'local') {
-      authSection = '<div class="card settings-card">' +
-        '<div class="card-header"><h2>' + this._t('authenticate') + '</h2></div>' +
-        '<div class="card-content">' +
-          '<p class="settings-desc">' + this._t('oauthInstructions') + '</p>' +
-          '<a href="' + status.auth_url + '" target="_blank" rel="noopener noreferrer" class="primary-btn oauth-link">' + this._t('authenticate') + '</a>' +
-          '<div class="auth-code-section">' +
-            '<p class="settings-desc">' + this._t('pasteAuthCode') + '</p>' +
-            '<div class="auth-code-input-row">' +
-              '<input type="text" class="form-input auth-code-input" placeholder="' + this._t('authCode') + '" value="' + (this._state.authCodeInput || '') + '" data-input="auth-code">' +
-              '<button class="primary-btn" data-action="submit-auth-code">' + this._t('submitAuthCode') + '</button>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-      '</div>';
-    }
-
     // Provider selection cards
     let providersSection = '<div class="card settings-card">' +
       '<div class="card-header"><h2>' + this._t('switchProvider') + '</h2></div>' +
@@ -2709,7 +2668,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         providerStatus = '<span class="provider-badge active">' + this._t('connected') + '</span>';
       } else if (!isAvailable) {
         providerStatus = '<span class="provider-badge unavailable">' + this._t('notAvailableYet') + '</span>';
-      } else if (!isConfigured && provider.type !== 'local' && provider.type !== 'webdav') {
+      } else if (!isConfigured && provider.type !== 'local') {
         // Cloud provider not configured - show informational badge only
         // User needs to remove and re-add the integration to use cloud storage
         providerStatus = '<span class="provider-badge not-configured">' + this._t('notConfigured') + '</span>';
@@ -2724,7 +2683,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
         case 'google_drive': providerDesc = this._t('googleDriveDesc'); break;
         case 'onedrive': providerDesc = this._t('oneDriveDesc'); break;
         case 'dropbox': providerDesc = this._t('dropboxDesc'); break;
-        case 'webdav': providerDesc = this._t('webdavDesc'); break;
       }
 
       providersSection += '<div class="provider-item ' + (isActive ? 'active' : '') + ' ' + (!isAvailable ? 'disabled' : '') + '">' +
@@ -2753,7 +2711,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
 
     return '<div class="page-header"><h1>' + this._t('settings') + '</h1></div>' +
       currentStorageCard +
-      authSection +
       providersSection +
       infoCard +
       this._renderSettingsStyles();
@@ -2796,9 +2753,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
       '.primary-btn { padding: 10px 20px; background: var(--primary-color); color: white; border: none; border-radius: 20px; font-size: 14px; cursor: pointer; text-decoration: none; display: inline-block; }' +
       '.primary-btn:hover { opacity: 0.9; }' +
       '.oauth-link { margin-bottom: 16px; }' +
-      '.auth-code-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--divider-color); }' +
-      '.auth-code-input-row { display: flex; gap: 8px; }' +
-      '.auth-code-input { flex: 1; }' +
       '.provider-item.active .secondary-btn { border-color: rgba(255,255,255,0.3); color: white; }' +
       '.provider-item.active .secondary-btn:hover { background: rgba(255,255,255,0.1); }' +
       '.info-card { background: var(--secondary-background-color); }' +
@@ -2961,7 +2915,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         '<div class="receipt-icon">' + receiptIcon + '</div>' +
         '<div class="receipt-content">' +
           '<div class="receipt-merchant">' + this._escapeHtml(receipt.merchant || receipt.name || 'Unknown') + photoIndicator + '</div>' +
-          '<div class="receipt-date">' + (receipt.date || 'No date') + '</div>' +
+          '<div class="receipt-date">' + this._escapeHtml(receipt.date || 'No date') + '</div>' +
         '</div>' +
         '<div class="receipt-amount">' + this._formatCurrency(receipt.total || 0) + '</div>' +
         '<div class="menu-container">' +
@@ -3061,7 +3015,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
             '<div class="receipt-detail-amount">' + this._formatCurrency(receipt.total || 0) + '</div>' +
           '</div>' +
           '<div class="receipt-detail-meta">' +
-            '<div class="receipt-detail-row">' + calendarIcon + '<span class="receipt-detail-value">' + (receipt.date || this._t('noDate')) + '</span></div>' +
+            '<div class="receipt-detail-row">' + calendarIcon + '<span class="receipt-detail-value">' + this._escapeHtml(receipt.date || this._t('noDate')) + '</span></div>' +
             (displayProjectName ? '<div class="receipt-detail-row">' + folderIcon + '<span class="receipt-detail-value">' + this._escapeHtml(displayProjectName) + '</span></div>' : '') +
             (receipt.area_id ? '<div class="receipt-detail-row">' + folderIcon + '<span class="receipt-detail-value">' + this._escapeHtml(this._state.areas[receipt.area_id] || this._t('unknownArea')) + '</span></div>' : '') +
             (cats.length > 0 ? '<div class="receipt-detail-row">' + tagIcon + categoriesHtml + '</div>' : '') +
@@ -3400,7 +3354,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
             '<div class="tag-hint">' + merchantHint + '</div>' +
           '</div>') +
           '<div class="form-group"><label>' + this._t('amount') + ' *</label><input type="number" id="receipt-amount" value="' + (data.total || '') + '" placeholder="0.00" step="0.01" min="0" required></div>' +
-          '<div class="form-group"><label>' + this._t('date') + ' *</label><input type="date" id="receipt-date" value="' + (data.date || today) + '" required></div>' +
+          '<div class="form-group"><label>' + this._t('date') + ' *</label><input type="date" id="receipt-date" value="' + this._escapeHtml(data.date || today) + '" required></div>' +
           this._renderCategoriesSection(data, allCategories, categoryHint) +
           itemRowsHtml +
           photoSectionHtml +
@@ -3443,7 +3397,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
           '<h3>' + (data.title || this._t('confirm')) + '</h3>' +
           '<button class="modal-close" data-action="close-modal">' + closeIcon + '</button>' +
         '</div>' +
-        '<div class="modal-body"><p class="confirm-message">' + (data.message || this._t('areYouSure')) + '</p></div>' +
+        '<div class="modal-body"><p class="confirm-message">' + this._escapeHtml(data.message || this._t('areYouSure')) + '</p></div>' +
         '<div class="modal-actions">' +
           '<button class="btn btn-secondary" data-action="close-modal">' + this._t('cancel') + '</button>' +
           '<button class="btn btn-danger" data-action="confirm-action">' + this._t('delete') + '</button>' +
@@ -3621,13 +3575,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
       photoCapture.addEventListener("change", (e) => this._handlePhotoFiles(e.target.files));
     }
 
-    // Auth code input for settings
-    const authCodeInput = this._container.querySelector(".auth-code-input");
-    if (authCodeInput) {
-      authCodeInput.addEventListener("input", (e) => {
-        this._state.authCodeInput = e.target.value;
-      });
-    }
   }
 
   _setupAutocomplete(input, dropdown, allOptions) {
@@ -4299,9 +4246,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
       case "storage-disconnect":
         this._disconnectStorage();
         break;
-      case "submit-auth-code":
-        this._submitAuthCode();
-        break;
       case "open-integration-options":
         // Navigate to the integration options page in Home Assistant
         this._openIntegrationOptions();
@@ -4805,7 +4749,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
   _escapeHtml(text) {
     const div = document.createElement("div");
     div.textContent = text || '';
-    return div.innerHTML;
+    return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   _getAllMerchants() {
@@ -4875,7 +4819,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
           { type: "google_drive", name: "Google Drive", configured: false, available: true },
           { type: "onedrive", name: "OneDrive", configured: false, available: false },
           { type: "dropbox", name: "Dropbox", configured: false, available: false },
-          { type: "webdav", name: "WebDAV", configured: true, available: false },
         ],
       };
       this._render();
@@ -4931,38 +4874,6 @@ class HomeProjectLedgerPanel extends HTMLElement {
     }
   }
 
-  async _submitAuthCode() {
-    if (!this._hass) return;
-    
-    const authCodeInput = this._container.querySelector('.auth-code-input');
-    const authCode = authCodeInput?.value?.trim();
-    
-    if (!authCode) {
-      return;
-    }
-    
-    try {
-      const response = await fetch('/api/home_project_ledger/storage/config', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + this._hass.auth.data.access_token,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ auth_code: authCode }),
-      });
-      
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Authentication failed');
-      }
-      
-      this._state.authCodeInput = "";
-      await this._loadStorageStatus();
-    } catch (error) {
-      console.error("Error authenticating:", error);
-      alert(this._t('failedStorageConfig'));
-    }
-  }
 }
 
 // Guard against duplicate registration (happens during hot reload or re-navigation)

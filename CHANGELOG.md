@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- Removed the unused OAuth callback, manual authorization-code flow, and unimplemented WebDAV options.
+- Restricted storage configuration to administrators.
+- Escaped panel project names, receipt dates, attribute values, and confirmation messages while preserving graph rendering.
 ### Fixed
 - Save receipt photos over HTTP to avoid Home Assistant's WebSocket size limit, and show useful save errors instead of `undefined`.
 

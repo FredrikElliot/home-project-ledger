@@ -151,31 +151,15 @@
     },
     "set_storage_config": {
       "name": "Set storage configuration",
-      "description": "Configure cloud storage settings for receipt images.",
+      "description": "Configure cloud storage settings for receipt images (admin only).",
       "fields": {
         "provider": {
           "name": "Provider",
-          "description": "Storage provider type (local, google_drive, onedrive, dropbox, webdav)"
-        },
-        "auth_code": {
-          "name": "Authorization code",
-          "description": "OAuth authorization code from the provider"
+          "description": "Storage provider type (local, google_drive, onedrive, dropbox)"
         },
         "disconnect": {
           "name": "Disconnect",
           "description": "Disconnect from cloud storage and switch to local"
-        },
-        "webdav_url": {
-          "name": "WebDAV URL",
-          "description": "URL of the WebDAV server"
-        },
-        "webdav_username": {
-          "name": "WebDAV username",
-          "description": "Username for WebDAV authentication"
-        },
-        "webdav_password": {
-          "name": "WebDAV password",
-          "description": "Password for WebDAV authentication"
         },
         "folder_path": {
           "name": "Folder path",
