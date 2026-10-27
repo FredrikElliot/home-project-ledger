@@ -3,12 +3,12 @@ from __future__ import annotations
 
 import logging
 import os
-import shutil
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.components import panel_custom
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.helpers import config_entry_oauth2_flow
 
 from .const import (
@@ -35,39 +35,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Home Project Ledger from a config entry."""
     _LOGGER.debug("Setting up Home Project Ledger integration")
 
-    def setup_directories_and_assets() -> dict[str, str | None]:
-        """Create required dirs and copy frontend assets to /config/www/<DOMAIN>/."""
-        # Receipt images directory
+    def setup_receipt_directory() -> None:
+        """Create the receipt images directory."""
         receipt_dir = hass.config.path(RECEIPT_IMAGE_DIR)
         os.makedirs(receipt_dir, exist_ok=True)
 
-        # Public frontend directory served as /local/<DOMAIN>/...
-        www_domain_dir = hass.config.path(f"www/{DOMAIN}")
-        os.makedirs(www_domain_dir, exist_ok=True)
+    await hass.async_add_executor_job(setup_receipt_directory)
 
-        base_frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
-
-        panel_js_src = os.path.join(base_frontend_dir, "panel.js")
-        panel_js_dst = os.path.join(www_domain_dir, "panel.js")
-
-        panel_html_src = os.path.join(base_frontend_dir, "panel.html")
-        panel_html_dst = os.path.join(www_domain_dir, "panel.html")
-
-        copied_js = None
-        copied_html = None
-
-        if os.path.exists(panel_js_src):
-            shutil.copy(panel_js_src, panel_js_dst)
-            copied_js = panel_js_dst
-
-        if os.path.exists(panel_html_src):
-            shutil.copy(panel_html_src, panel_html_dst)
-            copied_html = panel_html_dst
-
-        return {"panel_js": copied_js, "panel_html": copied_html}
-
-    copied = await hass.async_add_executor_job(setup_directories_and_assets)
-    _LOGGER.debug("Frontend assets copied: %s", copied)
+    hass.data.setdefault(DOMAIN, {})
+    if not hass.data[DOMAIN].get("panel_static_path_registered"):
+        frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(f"/{DOMAIN}", frontend_dir)]
+        )
+        hass.data[DOMAIN]["panel_static_path_registered"] = True
 
     # Register sidebar panel early (and only once)
     await _async_register_panel(hass)
@@ -160,7 +141,7 @@ async def _async_register_panel(hass: HomeAssistant) -> None:
     # Add cache-busting timestamp to force browser to reload JS file
     import time
     cache_bust = int(time.time())
-    module_url = f"/local/{DOMAIN}/panel.js?v={cache_bust}"
+    module_url = f"/{DOMAIN}/panel.js?v={cache_bust}"
 
     # Get the user's language for the sidebar title
     # Home Assistant stores the language in hass.config.language

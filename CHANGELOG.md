@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+- Removed the unused OAuth callback, manual authorization-code flow, and unimplemented WebDAV options.
+- Restricted storage configuration to administrators.
+- Escaped panel project names, receipt dates, attribute values, and confirmation messages while preserving graph rendering.
+### Fixed
+- Save receipt photos over HTTP to avoid Home Assistant's WebSocket size limit, and show useful save errors instead of `undefined`.
+
 ## [1.2.1] - 2026-10-19
 
 ### Added
