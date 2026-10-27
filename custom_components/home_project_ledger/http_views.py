@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from aiohttp import web
 import voluptuous as vol
@@ -11,10 +12,43 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import Unauthorized
 
 from .cloud_storage.base import StorageProviderType
-from .const import DOMAIN
+from .const import DOMAIN, RECEIPT_IMAGE_DIR, RECEIPT_IMAGE_URL
 from .services import SERVICE_SET_STORAGE_CONFIG_SCHEMA
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class ReceiptImageView(HomeAssistantView):
+    """Serve private receipts to authenticated or signed requests."""
+
+    url = f"{RECEIPT_IMAGE_URL}{{filename}}"
+    name = "api:home_project_ledger:receipts"
+    requires_auth = True
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        """Initialize the view."""
+        self.hass = hass
+
+    async def get(self, request: web.Request, filename: str) -> web.FileResponse:
+        """Return a receipt without allowing access outside its directory."""
+        if filename in ("", ".", "..") or "/" in filename or "\\" in filename:
+            raise web.HTTPNotFound()
+
+        def find_image() -> Path | None:
+            directory = Path(self.hass.config.path(RECEIPT_IMAGE_DIR)).resolve()
+            path = (directory / filename).resolve()
+            if path.parent == directory and path.is_file():
+                return path
+            return None
+
+        path = await self.hass.async_add_executor_job(find_image)
+        if path is None:
+            raise web.HTTPNotFound()
+        return web.FileResponse(path, headers={
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "default-src 'none'; sandbox",
+        })
 
 
 class StorageStatusView(HomeAssistantView):
@@ -135,6 +169,7 @@ class StorageConfigView(HomeAssistantView):
 
 def async_register_views(hass: HomeAssistant) -> None:
     """Register HTTP views."""
+    hass.http.register_view(ReceiptImageView(hass))
     hass.http.register_view(StorageStatusView(hass))
     hass.http.register_view(StorageConfigView(hass))
     _LOGGER.info("Registered Home Project Ledger HTTP views")

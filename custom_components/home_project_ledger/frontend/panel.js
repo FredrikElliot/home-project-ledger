@@ -1312,6 +1312,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
     }
 
     this._attachEventListeners();
+    this._loadReceiptImages();
     
     // Initialize the timeline chart after DOM is ready (only for dashboard tab)
     if (this._state.activeTab === 'dashboard') {
@@ -1323,6 +1324,38 @@ class HomeProjectLedgerPanel extends HTMLElement {
         this._initMerchantExpanders();
       });
     }
+  }
+
+  _receiptImageAttributes(path) {
+    const privatePrefix = '/api/home_project_ledger/receipts/';
+    const legacyPrefix = '/local/home_project_ledger/receipts/';
+    if (path.startsWith(legacyPrefix)) {
+      path = privatePrefix + path.slice(legacyPrefix.length);
+    }
+    if (path.startsWith(privatePrefix)) {
+      return 'data-receipt-path="' + encodeURIComponent(path) + '"';
+    }
+    return 'src="' + this._escapeHtml(path).replace(/"/g, '&quot;') + '"';
+  }
+
+  _loadReceiptImages() {
+    const signedPaths = new Map();
+    this.querySelectorAll('img[data-receipt-path]').forEach(async (image) => {
+      const path = decodeURIComponent(image.dataset.receiptPath);
+      try {
+        if (!signedPaths.has(path)) {
+          signedPaths.set(path, this._hass.callWS({
+            type: 'auth/sign_path',
+            path,
+            expires: 300,
+          }));
+        }
+        const { path: signedPath } = await signedPaths.get(path);
+        image.src = this._hass.hassUrl(signedPath);
+      } catch (error) {
+        console.error('Failed to load receipt image:', error);
+      }
+    });
   }
 
   _renderMobileAppBar() {
@@ -2954,14 +2987,14 @@ class HomeProjectLedgerPanel extends HTMLElement {
     if (imagePaths.length > 0) {
       const currentImage = imagePaths[selectedPhotoIndex] || imagePaths[0];
       imageHtml = '<div class="receipt-detail-image">' +
-        '<img src="' + currentImage + '" alt="Receipt" data-action="view-receipt-photo" data-receipt-id="' + receipt.receipt_id + '" data-photo-index="' + selectedPhotoIndex + '">';
+        '<img ' + this._receiptImageAttributes(currentImage) + ' alt="Receipt" data-action="view-receipt-photo" data-receipt-id="' + receipt.receipt_id + '" data-photo-index="' + selectedPhotoIndex + '">';
       
       // Photo thumbnails for navigation if multiple photos
       if (imagePaths.length > 1) {
         imageHtml += '<div class="receipt-detail-photos">' +
           imagePaths.map((path, i) => 
             '<div class="receipt-detail-photo-thumb' + (i === selectedPhotoIndex ? ' active' : '') + '" data-action="select-detail-photo" data-photo-index="' + i + '" data-receipt-id="' + receipt.receipt_id + '">' +
-              '<img src="' + path + '" alt="Photo ' + (i + 1) + '">' +
+              '<img ' + this._receiptImageAttributes(path) + ' alt="Photo ' + (i + 1) + '">' +
             '</div>'
           ).join('') +
         '</div>';
@@ -3048,7 +3081,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
     return '<div class="photo-viewer" data-action="close-photo-viewer">' +
       '<button class="photo-viewer-close" data-action="close-photo-viewer">' + closeIcon + '</button>' +
       (showPrev ? '<button class="photo-viewer-nav prev" data-action="photo-viewer-prev" onclick="event.stopPropagation()">' + prevIcon + '</button>' : '') +
-      '<img src="' + currentPhoto.src + '" alt="Receipt photo" onclick="event.stopPropagation()">' +
+      '<img ' + this._receiptImageAttributes(currentPhoto.src) + ' alt="Receipt photo" onclick="event.stopPropagation()">' +
       (showNext ? '<button class="photo-viewer-nav next" data-action="photo-viewer-next" onclick="event.stopPropagation()">' + nextIcon + '</button>' : '') +
     '</div>';
   }
@@ -3314,7 +3347,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
         const imgSrc = photo.type === 'existing' ? photo.path : photo.dataUrl;
         const removeAction = photo.type === 'existing' ? 'remove-existing-photo' : 'remove-pending-photo';
         return '<div class="photo-thumb" data-action="view-photo" data-photo-index="' + i + '">' +
-          '<img src="' + imgSrc + '" alt="Receipt photo">' +
+          '<img ' + this._receiptImageAttributes(imgSrc) + ' alt="Receipt photo">' +
           '<button class="photo-thumb-remove" data-action="' + removeAction + '" data-index="' + photo.index + '" onclick="event.stopPropagation()">' + removeIcon + '</button>' +
         '</div>';
       }).join('') + '</div>';

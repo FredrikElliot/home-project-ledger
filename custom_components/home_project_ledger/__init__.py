@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -39,6 +40,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         """Create the receipt images directory."""
         receipt_dir = hass.config.path(RECEIPT_IMAGE_DIR)
         os.makedirs(receipt_dir, exist_ok=True)
+        legacy_receipt_dir = hass.config.path(f"www/{DOMAIN}/receipts")
+        if os.path.isdir(legacy_receipt_dir):
+            for filename in os.listdir(legacy_receipt_dir):
+                shutil.move(
+                    os.path.join(legacy_receipt_dir, filename),
+                    os.path.join(receipt_dir, filename),
+                )
+            os.rmdir(legacy_receipt_dir)
 
     await hass.async_add_executor_job(setup_receipt_directory)
 

@@ -11,7 +11,9 @@ STORAGE_KEY_RECEIPTS: Final = f"{DOMAIN}.receipts"
 STORAGE_KEY_CONFIG: Final = f"{DOMAIN}.config"
 
 # Receipt image storage
-RECEIPT_IMAGE_DIR: Final = f"www/{DOMAIN}/receipts"
+RECEIPT_IMAGE_DIR: Final = f"{DOMAIN}/receipts"
+RECEIPT_IMAGE_URL: Final = f"/api/{DOMAIN}/receipts/"
+LEGACY_RECEIPT_IMAGE_URL: Final = f"/local/{DOMAIN}/receipts/"
 
 # Project status
 STATUS_OPEN: Final = "open"

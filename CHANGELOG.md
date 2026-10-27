@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Integration icon and logo, including a dark-theme logo, so Home Project Ledger shows its own branding in Settings → Devices & Services (Home Assistant 2026.3+)
 
 ### Fixed
+- Receipt photos are now stored outside `www` and served through an authenticated API with temporary signed preview URLs. Existing local photos and paths migrate automatically; graph assets are unchanged.
 - Version reported by the integration now matches the release (`manifest.json` still said 1.0.0)
 
 ### Documentation

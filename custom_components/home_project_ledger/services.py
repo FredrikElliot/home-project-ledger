@@ -20,6 +20,7 @@ from .const import (
     DEFAULT_CURRENCY,
     DOMAIN,
     RECEIPT_IMAGE_DIR,
+    RECEIPT_IMAGE_URL,
     SERVICE_ADD_RECEIPT,
     SERVICE_CLOSE_PROJECT,
     SERVICE_CREATE_PROJECT,
@@ -332,8 +333,8 @@ async def async_setup_services(
 
         await hass.async_add_executor_job(write_image)
 
-        # Return relative path for web access
-        return f"/local/{DOMAIN}/receipts/{unique_filename}"
+        # Store the unsigned path; the panel requests temporary signed URLs.
+        return f"{RECEIPT_IMAGE_URL}{unique_filename}"
 
     async def _delete_image(image_path: str) -> None:
         """Delete an image file."""

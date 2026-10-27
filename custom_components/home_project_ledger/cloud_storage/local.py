@@ -3,11 +3,14 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import timedelta
 from pathlib import Path
 from typing import Optional
 
 from homeassistant.core import HomeAssistant
+from homeassistant.components.http.auth import async_sign_path
 
+from ..const import RECEIPT_IMAGE_DIR, RECEIPT_IMAGE_URL
 from .base import CloudStorageProvider, StorageConfig, StorageProviderType, StorageStatus
 
 _LOGGER = logging.getLogger(__name__)
@@ -22,7 +25,19 @@ class LocalStorageProvider(CloudStorageProvider):
         """Initialize local storage provider."""
         super().__init__(config)
         self.hass = hass
-        self._base_path = Path(hass.config.path("www/home_project_ledger/receipts"))
+        self._base_path = Path(hass.config.path(RECEIPT_IMAGE_DIR))
+
+    def _image_path(self, image_path: str) -> Path | None:
+        """Resolve only receipt filenames inside private storage."""
+        if not image_path.startswith(RECEIPT_IMAGE_URL):
+            return None
+        filename = image_path[len(RECEIPT_IMAGE_URL):]
+        if filename in ("", ".", "..") or "/" in filename or "\\" in filename:
+            return None
+        path = (self._base_path / filename).resolve()
+        if path.parent != self._base_path.resolve():
+            return None
+        return path
     
     async def authenticate(self) -> bool:
         """Local storage doesn't need authentication."""
@@ -34,31 +49,25 @@ class LocalStorageProvider(CloudStorageProvider):
     
     async def save_image(self, image_data: bytes, filename: str) -> str:
         """Save an image to local storage."""
-        # Ensure directory exists
-        self._base_path.mkdir(parents=True, exist_ok=True)
-        
-        # Save the file
-        file_path = self._base_path / filename
-        
         def _write_file():
+            self._base_path.mkdir(parents=True, exist_ok=True)
+            file_path = self._image_path(f"{RECEIPT_IMAGE_URL}{filename}")
+            if file_path is None:
+                raise ValueError("Invalid receipt filename")
             with open(file_path, "wb") as f:
                 f.write(image_data)
         
         await self.hass.async_add_executor_job(_write_file)
         
-        # Return web-accessible path
-        return f"/local/home_project_ledger/receipts/{filename}"
+        return f"{RECEIPT_IMAGE_URL}{filename}"
     
     async def delete_image(self, image_path: str) -> bool:
         """Delete an image from local storage."""
         try:
-            # Convert web path to file path
-            if image_path.startswith("/local/home_project_ledger/receipts/"):
-                filename = image_path.split("/")[-1]
-                file_path = self._base_path / filename
-                
+            if image_path.startswith(RECEIPT_IMAGE_URL):
                 def _delete_file():
-                    if file_path.exists():
+                    file_path = self._image_path(image_path)
+                    if file_path is not None and file_path.is_file():
                         os.remove(file_path)
                         return True
                     return False
@@ -72,12 +81,10 @@ class LocalStorageProvider(CloudStorageProvider):
     async def get_image(self, image_path: str) -> Optional[bytes]:
         """Retrieve an image from local storage."""
         try:
-            if image_path.startswith("/local/home_project_ledger/receipts/"):
-                filename = image_path.split("/")[-1]
-                file_path = self._base_path / filename
-                
+            if image_path.startswith(RECEIPT_IMAGE_URL):
                 def _read_file():
-                    if file_path.exists():
+                    file_path = self._image_path(image_path)
+                    if file_path is not None and file_path.is_file():
                         with open(file_path, "rb") as f:
                             return f.read()
                     return None
@@ -137,10 +144,7 @@ class LocalStorageProvider(CloudStorageProvider):
         return False
     
     async def get_image_url(self, image_path: str) -> Optional[str]:
-        """Get a web-accessible URL for an image.
-        
-        For local storage, the image_path is already a web-accessible URL.
-        """
-        if image_path.startswith("/local/"):
-            return image_path
+        """Get a short-lived signed URL for an image."""
+        if image_path.startswith(RECEIPT_IMAGE_URL):
+            return async_sign_path(self.hass, image_path, timedelta(minutes=5))
         return None
