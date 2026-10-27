@@ -205,6 +205,8 @@ const TRANSLATIONS = {
     failedReopenProject: "Failed to reopen project",
     failedDeleteProject: "Failed to delete project",
     failedSaveReceipt: "Failed to save receipt",
+    receiptSaveRetry: "Check your connection and try again.",
+    receiptUploadTooLarge: "The photos are too large to upload together. Try fewer or smaller photos.",
     failedDeleteReceipt: "Failed to delete receipt",
     
     // Photo upload
@@ -438,6 +440,8 @@ const TRANSLATIONS = {
     failedReopenProject: "Kunde inte öppna projekt igen",
     failedDeleteProject: "Kunde inte radera projekt",
     failedSaveReceipt: "Kunde inte spara kvitto",
+    receiptSaveRetry: "Kontrollera anslutningen och försök igen.",
+    receiptUploadTooLarge: "Bilderna är för stora för att laddas upp tillsammans. Försök med färre eller mindre bilder.",
     failedDeleteReceipt: "Kunde inte radera kvitto",
     
     // Photo upload
@@ -4542,6 +4546,14 @@ class HomeProjectLedgerPanel extends HTMLElement {
     }
   }
 
+  async _callReceiptService(service, payload) {
+    if (payload.images?.length || payload.add_images?.length) {
+      // Base64 photos can exceed Home Assistant's 4 MiB WebSocket message limit.
+      return this._hass.callApi("POST", `services/${DOMAIN}/${service}`, payload);
+    }
+    return this._hass.callService(DOMAIN, service, payload);
+  }
+
   async _saveReceipt() {
     const data = this._state.modal?.data || {};
     const isItemOnly = !!data.itemOnly;
@@ -4671,7 +4683,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
           updatePayload.remove_image_paths = data.removed_image_paths;
         }
         
-        await this._hass.callService(DOMAIN, "update_receipt", updatePayload);
+        await this._callReceiptService("update_receipt", updatePayload);
       } else {
         // Add new receipt
         const addPayload = {
@@ -4704,7 +4716,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
           addPayload.images = imagesToAdd;
         }
         
-        await this._hass.callService(DOMAIN, "add_receipt", addPayload);
+        await this._callReceiptService("add_receipt", addPayload);
       }
       
       // Clear pending photos and categories, close modal
@@ -4717,7 +4729,11 @@ class HomeProjectLedgerPanel extends HTMLElement {
       setTimeout(() => this._loadData(), 500);
     } catch (error) {
       console.error("Error saving receipt:", error);
-      alert(this._t('failedSaveReceipt') + ": " + error.message);
+      const detail = error?.status_code === 413
+        ? this._t('receiptUploadTooLarge')
+        : error?.body?.message || error?.message || error?.error ||
+          (typeof error === 'string' && error) || this._t('receiptSaveRetry');
+      alert(this._t('failedSaveReceipt') + ": " + detail);
     }
   }
 
