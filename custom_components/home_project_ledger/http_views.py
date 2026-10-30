@@ -64,6 +64,9 @@ class StorageStatusView(HomeAssistantView):
     
     async def get(self, request: web.Request) -> web.Response:
         """Handle GET request for storage status."""
+        if not request["hass_user"].is_admin:
+            raise Unauthorized()
+
         # Find the cloud storage manager from any entry
         for entry_data in self.hass.data.get(DOMAIN, {}).values():
             if isinstance(entry_data, dict) and "cloud_storage_manager" in entry_data:

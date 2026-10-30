@@ -41,13 +41,44 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         receipt_dir = hass.config.path(RECEIPT_IMAGE_DIR)
         os.makedirs(receipt_dir, exist_ok=True)
         legacy_receipt_dir = hass.config.path(f"www/{DOMAIN}/receipts")
-        if os.path.isdir(legacy_receipt_dir):
-            for filename in os.listdir(legacy_receipt_dir):
-                shutil.move(
-                    os.path.join(legacy_receipt_dir, filename),
-                    os.path.join(receipt_dir, filename),
+        if not os.path.isdir(legacy_receipt_dir):
+            return
+        # Files left under www/ are publicly readable via /local/, so move each
+        # one independently and never let a single failure abort setup.
+        for filename in os.listdir(legacy_receipt_dir):
+            source = os.path.join(legacy_receipt_dir, filename)
+            if not os.path.isfile(source):
+                _LOGGER.warning(
+                    "Skipping non-file %s in legacy public receipt folder; remove it manually",
+                    source,
                 )
+                continue
+            target = os.path.join(receipt_dir, filename)
+            if os.path.exists(target):
+                _LOGGER.warning(
+                    "Receipt %s already exists in private storage; leaving public copy %s for manual review",
+                    filename,
+                    source,
+                )
+                continue
+            try:
+                shutil.move(source, target)
+            except OSError as err:
+                _LOGGER.error(
+                    "Failed to move receipt %s out of public folder: %s", source, err
+                )
+        try:
             os.rmdir(legacy_receipt_dir)
+        except OSError:
+            _LOGGER.warning(
+                "Legacy public folder %s is not empty; files there remain reachable via /local/",
+                legacy_receipt_dir,
+            )
+            return
+        try:
+            os.rmdir(hass.config.path(f"www/{DOMAIN}"))
+        except OSError:
+            pass
 
     await hass.async_add_executor_job(setup_receipt_directory)
 

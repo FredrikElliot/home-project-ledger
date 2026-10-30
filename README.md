@@ -89,7 +89,7 @@ All sensors are monetary and record long-term statistics, so you can use them in
 - **Project and receipt metadata**: `.storage/home_project_ledger.*.json`
 - **Receipt images (local)**: `config/home_project_ledger/receipts/` (private; served through an authenticated API with temporary signed URLs for previews)
 
-Existing local receipt photos and stored paths are migrated automatically on startup, removing the public `www/home_project_ledger/receipts/` directory. Panel assets and graphs are unchanged.
+Existing local receipt photos and stored paths are migrated automatically on startup, removing the public `www/home_project_ledger/receipts/` directory. If a photo can't be moved (for example because a file with the same name already exists in private storage), it is left in place and a warning is logged — check the Home Assistant log and remove any leftovers manually, since files under `www/` are reachable without login. Panel assets and graphs are unchanged.
 - **Receipt images (cloud)**: your configured cloud storage provider
 
 Include these paths in your backups.
