@@ -1719,9 +1719,13 @@ class HomeProjectLedgerPanel extends HTMLElement {
         if (!this._state.customDateRange?.start || !this._state.customDateRange?.end) {
           return [];
         }
-        const startDate = new Date(this._state.customDateRange.start);
-        const endDate = new Date(this._state.customDateRange.end);
-        const daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+        const parseLocalDate = date => {
+          const [year, month, day] = date.split('-').map(Number);
+          return new Date(year, month - 1, day);
+        };
+        const startDate = parseLocalDate(this._state.customDateRange.start);
+        const endDate = parseLocalDate(this._state.customDateRange.end);
+        const daysDiff = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
         
         if (daysDiff <= 31) {
           // Show daily for up to 31 days - include month in tooltip
