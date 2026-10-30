@@ -20,6 +20,8 @@ from .const import (
     PANEL_URL,
     CONF_STORAGE_PROVIDER,
     STORAGE_PROVIDER_LOCAL,
+    LEGACY_RECEIPT_IMAGE_URL,
+    RECEIPT_IMAGE_URL,
 )
 from .coordinator import ProjectLedgerCoordinator
 from .services import async_setup_services
@@ -36,20 +38,57 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Home Project Ledger from a config entry."""
     _LOGGER.debug("Setting up Home Project Ledger integration")
 
-    def setup_receipt_directory() -> None:
-        """Create the receipt images directory."""
+    def setup_receipt_directory() -> dict[str, str]:
+        """Create the receipt images directory and migrate legacy image URLs."""
         receipt_dir = hass.config.path(RECEIPT_IMAGE_DIR)
         os.makedirs(receipt_dir, exist_ok=True)
         legacy_receipt_dir = hass.config.path(f"www/{DOMAIN}/receipts")
-        if os.path.isdir(legacy_receipt_dir):
-            for filename in os.listdir(legacy_receipt_dir):
-                shutil.move(
-                    os.path.join(legacy_receipt_dir, filename),
-                    os.path.join(receipt_dir, filename),
+        if not os.path.isdir(legacy_receipt_dir):
+            return {}
+        migrated_paths = {}
+        # Files left under www/ are publicly readable via /local/, so move each
+        # one independently and never let a single failure abort setup.
+        for filename in os.listdir(legacy_receipt_dir):
+            source = os.path.join(legacy_receipt_dir, filename)
+            if not os.path.isfile(source):
+                _LOGGER.warning(
+                    "Skipping non-file %s in legacy public receipt folder; remove it manually",
+                    source,
                 )
+                continue
+            target_filename = filename
+            target = os.path.join(receipt_dir, target_filename)
+            if os.path.exists(target):
+                name, extension = os.path.splitext(filename)
+                suffix = 1
+                while os.path.exists(target):
+                    target_filename = f"{name}_{suffix}{extension}"
+                    target = os.path.join(receipt_dir, target_filename)
+                    suffix += 1
+            try:
+                shutil.move(source, target)
+            except OSError as err:
+                _LOGGER.error(
+                    "Failed to move receipt %s out of public folder: %s", source, err
+                )
+                continue
+            migrated_paths[f"{LEGACY_RECEIPT_IMAGE_URL}{filename}"] = (
+                f"{RECEIPT_IMAGE_URL}{target_filename}"
+            )
+        try:
             os.rmdir(legacy_receipt_dir)
+        except OSError:
+            _LOGGER.warning(
+                "Legacy public folder %s is not empty; files there remain reachable via /local/",
+                legacy_receipt_dir,
+            )
+            return
+        try:
+            os.rmdir(hass.config.path(f"www/{DOMAIN}"))
+        except OSError:
+            pass
 
-    await hass.async_add_executor_job(setup_receipt_directory)
+    migrated_receipt_paths = await hass.async_add_executor_job(setup_receipt_directory)
 
     hass.data.setdefault(DOMAIN, {})
     if not hass.data[DOMAIN].get("panel_static_path_registered"):
@@ -64,7 +103,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Initialize storage
     storage = ProjectLedgerStorage(hass)
-    await storage.async_load()
+    await storage.async_load(migrated_receipt_paths)
 
     # Initialize coordinator
     coordinator = ProjectLedgerCoordinator(hass, storage)

@@ -8,8 +8,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from .const import (
-    LEGACY_RECEIPT_IMAGE_URL,
-    RECEIPT_IMAGE_URL,
     STORAGE_KEY_PROJECTS,
     STORAGE_KEY_RECEIPTS,
     STORAGE_VERSION,
@@ -30,7 +28,9 @@ class ProjectLedgerStorage:
         self._projects: dict[str, Project] = {}
         self._receipts: dict[str, Receipt] = {}
 
-    async def async_load(self) -> None:
+    async def async_load(
+        self, migrated_receipt_paths: dict[str, str] | None = None
+    ) -> None:
         """Load data from storage."""
         _LOGGER.debug("Loading project ledger data from storage")
 
@@ -52,18 +52,13 @@ class ProjectLedgerStorage:
             }
             _LOGGER.debug("Loaded %d receipts", len(self._receipts))
 
+            migrated_paths = migrated_receipt_paths or {}
             migrated = False
             for receipt in self._receipts.values():
                 paths = [
-                    path.replace(LEGACY_RECEIPT_IMAGE_URL, RECEIPT_IMAGE_URL, 1)
-                    if path.startswith(LEGACY_RECEIPT_IMAGE_URL) else path
-                    for path in receipt.image_paths
+                    migrated_paths.get(path, path) for path in receipt.image_paths
                 ]
-                image_path = receipt.image_path
-                if image_path and image_path.startswith(LEGACY_RECEIPT_IMAGE_URL):
-                    image_path = image_path.replace(
-                        LEGACY_RECEIPT_IMAGE_URL, RECEIPT_IMAGE_URL, 1
-                    )
+                image_path = migrated_paths.get(receipt.image_path, receipt.image_path)
                 if paths != receipt.image_paths or image_path != receipt.image_path:
                     receipt.image_paths = paths
                     receipt.image_path = image_path

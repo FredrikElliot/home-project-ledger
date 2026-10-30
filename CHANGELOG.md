@@ -9,10 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 - Removed the unused OAuth callback, manual authorization-code flow, and unimplemented WebDAV options.
-- Restricted storage configuration to administrators.
+- Restricted storage configuration and storage status (including OAuth authorization links) to administrators, and hid the Settings tab from non-admin users.
+- Made the migration of receipt photos out of the public `www/` folder skip conflicts and non-files instead of aborting setup, and log any photos left publicly reachable.
 - Escaped panel project names, receipt dates, attribute values, and confirmation messages while preserving graph rendering.
 ### Fixed
 - Save receipt photos over HTTP to avoid Home Assistant's WebSocket size limit, and show useful save errors instead of `undefined`.
+- Restored the dashboard spending timeline after the amCharts removal, and made the SVG fill and resize with its container.
 
 ## [1.2.1] - 2026-10-19
 

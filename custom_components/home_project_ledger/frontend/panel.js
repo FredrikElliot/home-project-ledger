@@ -561,6 +561,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
   connectedCallback() {
     if (!this._initialized && this._hass) {
       this._initialize();
+    } else if (this._initialized) {
+      this._renderTimelineChart();
     }
     // No timer needed - Home Assistant pushes state updates via the hass setter
     document.addEventListener("click", this._handleDocumentClick.bind(this));
@@ -568,6 +570,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
 
   disconnectedCallback() {
     document.removeEventListener("click", this._handleDocumentClick.bind(this));
+    this._disconnectTimelineResize();
   }
   
   _handleDocumentClick(e) {
@@ -1192,6 +1195,10 @@ class HomeProjectLedgerPanel extends HTMLElement {
   _render(preserveTimeline = false) {
     if (!this._container) return;
 
+    if (this._state.activeTab === 'settings' && !this._isAdmin()) {
+      this._state.activeTab = 'dashboard';
+    }
+
     // Project sensors provide project receipts; the total sensor carries standalone receipts.
     const projectReceipts = [];
     this._state.projects.forEach(p => {
@@ -1318,12 +1325,16 @@ class HomeProjectLedgerPanel extends HTMLElement {
     if (this._state.activeTab === 'dashboard') {
       // Use requestAnimationFrame to ensure DOM is painted
       requestAnimationFrame(() => {
-        this._initTimelineChart();
+        this._renderTimelineChart();
         this._initBudgetHealthTooltips();
         this._initDonutTooltips();
         this._initMerchantExpanders();
       });
     }
+  }
+
+  _isAdmin() {
+    return Boolean(this._hass && this._hass.user && this._hass.user.is_admin);
   }
 
   _receiptImageAttributes(path) {
@@ -1382,7 +1393,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
       '<button class="main-nav-item ' + (isItems ? 'active' : '') + '" data-tab="items">' + itemsIcon + '<span class="nav-label">' + this._t('items') + '<span class="nav-badge">' + this._state.items.length + '</span></span></button>' +
       '<button class="main-nav-item ' + (isMerchants ? 'active' : '') + '" data-tab="merchants">' + merchantsIcon + '<span class="nav-label">' + this._t('merchants') + '<span class="nav-badge">' + merchants.length + '</span></span></button>' +
       '<button class="main-nav-item ' + (isCategories ? 'active' : '') + '" data-tab="categories">' + categoriesIcon + '<span class="nav-label">' + this._t('categories') + '<span class="nav-badge">' + categories.length + '</span></span></button>' +
-      '<button class="main-nav-item ' + (isSettings ? 'active' : '') + '" data-tab="settings">' + settingsIcon + '<span class="nav-label">' + this._t('settings') + '</span></button>' +
+      (this._isAdmin() ? '<button class="main-nav-item ' + (isSettings ? 'active' : '') + '" data-tab="settings">' + settingsIcon + '<span class="nav-label">' + this._t('settings') + '</span></button>' : '') +
     '</nav>';
   }
 
@@ -1708,9 +1719,13 @@ class HomeProjectLedgerPanel extends HTMLElement {
         if (!this._state.customDateRange?.start || !this._state.customDateRange?.end) {
           return [];
         }
-        const startDate = new Date(this._state.customDateRange.start);
-        const endDate = new Date(this._state.customDateRange.end);
-        const daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+        const parseLocalDate = date => {
+          const [year, month, day] = date.split('-').map(Number);
+          return new Date(year, month - 1, day);
+        };
+        const startDate = parseLocalDate(this._state.customDateRange.start);
+        const endDate = parseLocalDate(this._state.customDateRange.end);
+        const daysDiff = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
         
         if (daysDiff <= 31) {
           // Show daily for up to 31 days - include month in tooltip
@@ -1996,7 +2011,29 @@ class HomeProjectLedgerPanel extends HTMLElement {
       return;
     }
 
+    this._observeTimelineResize(container);
     this._renderFallbackChart(container);
+  }
+
+  _observeTimelineResize(container) {
+    if (typeof ResizeObserver === 'undefined' || this._timelineResizeTarget === container) return;
+    this._disconnectTimelineResize();
+    this._timelineResizeTarget = container;
+    this._timelineResizeObserver = new ResizeObserver(() => {
+      if (!container.isConnected) {
+        this._disconnectTimelineResize();
+        return;
+      }
+      const size = Math.round(container.clientWidth) + 'x' + Math.round(container.clientHeight);
+      if (size !== this._timelineChartSize) this._renderTimelineChart();
+    });
+    this._timelineResizeObserver.observe(container);
+  }
+
+  _disconnectTimelineResize() {
+    if (this._timelineResizeObserver) this._timelineResizeObserver.disconnect();
+    this._timelineResizeObserver = null;
+    this._timelineResizeTarget = null;
   }
 
   _renderFallbackChart(container) {
@@ -2005,8 +2042,10 @@ class HomeProjectLedgerPanel extends HTMLElement {
     if (!data || data.length === 0) return;
     
     const maxValue = Math.max(...data.map(d => d.value), 1);
-    const width = 400;
-    const height = 200;
+    // Match the viewBox to the container's pixel size so the chart fills it without distortion.
+    const width = Math.round(container.clientWidth) || 400;
+    const height = Math.round(container.clientHeight) || 200;
+    this._timelineChartSize = width + 'x' + height;
     const paddingTop = 20;
     const paddingBottom = 30;
     const paddingX = 40;
@@ -2032,7 +2071,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
     let dotsHtml = '';
     points.forEach((p, i) => {
       // Encode projects as JSON in data attribute
-      const projectsJson = JSON.stringify(p.projects).replace(/"/g, '&quot;');
+      const projectsJson = this._escapeHtml(JSON.stringify(p.projects));
       dotsHtml += '<circle class="timeline-chart-dot" cx="' + p.x.toFixed(2) + '" cy="' + p.y.toFixed(2) + '" r="5" data-index="' + i + '" data-value="' + this._formatCurrency(p.value) + '" data-label="' + p.label + '" data-projects="' + projectsJson + '"/>';
     });
     
@@ -2045,7 +2084,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
       }
     });
     
-    const markup = '<svg viewBox="0 0 ' + width + ' ' + height + '" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%">' +
+    const viewBox = '0 0 ' + width + ' ' + height;
+    const markup = '<svg viewBox="' + viewBox + '" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block">' +
       '<defs>' +
         '<linearGradient id="timeline-gradient" x1="0%" y1="0%" x2="0%" y2="100%">' +
           '<stop offset="0%" style="stop-color:var(--primary-color, #03a9f4);stop-opacity:0.3"/>' +
@@ -2063,8 +2103,9 @@ class HomeProjectLedgerPanel extends HTMLElement {
     if (svg) {
       const template = document.createElement('template');
       template.innerHTML = markup;
+      if (svg.getAttribute('viewBox') !== viewBox) svg.setAttribute('viewBox', viewBox);
       const addedDots = [];
-      ['.timeline-chart-area', '.timeline-chart-line', '.timeline-chart-dot', 'text'].forEach(selector => {
+      ['.timeline-chart-grid-line', '.timeline-chart-area', '.timeline-chart-line', '.timeline-chart-dot', 'text'].forEach(selector => {
         const previous = Array.from(svg.querySelectorAll(selector));
         const next = Array.from(template.content.querySelectorAll(selector));
         next.forEach((element, index) => {
@@ -3461,7 +3502,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
           this._state.detailPhotoIndex = 0;
           this._state.openMenuId = null;
           // Load storage status when switching to settings tab
-          if (tab === 'settings') {
+          if (tab === 'settings' && this._isAdmin()) {
             this._loadStorageStatus();
           }
           this._render();
