@@ -738,7 +738,8 @@ async def async_setup_services(
         schema=SERVICE_SET_STORAGE_CONFIG_SCHEMA,
     )
 
-    hass.services.async_register(
+    async_register_admin_service(
+        hass,
         DOMAIN,
         SERVICE_GET_STORAGE_STATUS,
         handle_get_storage_status,
