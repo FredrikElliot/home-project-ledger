@@ -2067,7 +2067,7 @@ class HomeProjectLedgerPanel extends HTMLElement {
     let dotsHtml = '';
     points.forEach((p, i) => {
       // Encode projects as JSON in data attribute
-      const projectsJson = JSON.stringify(p.projects).replace(/"/g, '&quot;');
+      const projectsJson = this._escapeHtml(JSON.stringify(p.projects));
       dotsHtml += '<circle class="timeline-chart-dot" cx="' + p.x.toFixed(2) + '" cy="' + p.y.toFixed(2) + '" r="5" data-index="' + i + '" data-value="' + this._formatCurrency(p.value) + '" data-label="' + p.label + '" data-projects="' + projectsJson + '"/>';
     });
     
