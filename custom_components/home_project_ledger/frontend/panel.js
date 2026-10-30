@@ -561,6 +561,8 @@ class HomeProjectLedgerPanel extends HTMLElement {
   connectedCallback() {
     if (!this._initialized && this._hass) {
       this._initialize();
+    } else if (this._initialized) {
+      this._renderTimelineChart();
     }
     // No timer needed - Home Assistant pushes state updates via the hass setter
     document.addEventListener("click", this._handleDocumentClick.bind(this));
